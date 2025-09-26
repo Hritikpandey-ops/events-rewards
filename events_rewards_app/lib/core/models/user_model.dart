@@ -29,8 +29,8 @@ class UserModel {
 
   // Factory constructor from JSON
 factory UserModel.fromJson(Map<String, dynamic> json) {
-  // 🔍 DEBUG: Print the raw JSON response
-  print("🔍 DEBUG UserModel JSON: $json");
+  // DEBUG: Print the raw JSON response
+  print("DEBUG UserModel JSON: $json");
   
   return UserModel(
     id: json['id'] as String,

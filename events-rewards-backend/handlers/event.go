@@ -1,10 +1,8 @@
 package handlers
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -149,58 +147,79 @@ func (h *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// DEBUG: Read and log raw request body
-	body, _ := ioutil.ReadAll(r.Body)
-	fmt.Printf("🔍 DEBUG Backend: Raw JSON received: %s\n", string(body))
-
-	// Reset body for JSON decoding
-	r.Body = ioutil.NopCloser(bytes.NewReader(body))
-
 	var req models.CreateEventRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		fmt.Printf("🔍 DEBUG Backend: JSON decode error: %v\n", err)
+		fmt.Printf("DEBUG: JSON decode error: %v\n", err)
 		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	// DEBUG: Log parsed request
-	fmt.Printf("🔍 DEBUG Backend: Parsed Title: '%s'\n", req.Title)
-	fmt.Printf("🔍 DEBUG Backend: Parsed EventDate: '%v'\n", req.EventDate)
-	fmt.Printf("🔍 DEBUG Backend: EventDate IsZero: %v\n", req.EventDate.IsZero())
-	fmt.Printf("🔍 DEBUG Backend: Title empty check: %v\n", req.Title == "")
+	fmt.Printf("DEBUG: Parsed request: %+v\n", req)
+
+	// Parse the date string manually using RFC3339 format
+	eventDate, err := time.Parse(time.RFC3339, req.EventDateStr)
+	if err != nil {
+		fmt.Printf("DEBUG: Date parsing error: %v\n", err)
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid date format. Use ISO8601/RFC3339 format")
+		return
+	}
+
+	fmt.Printf("DEBUG: Parsed EventDate: %v\n", eventDate)
 
 	// Validate required fields
-	if req.Title == "" || req.EventDate.IsZero() {
-		fmt.Printf("🔍 DEBUG Backend: Validation failed - Title: '%s', EventDate.IsZero(): %v\n", req.Title, req.EventDate.IsZero())
-		utils.ErrorResponse(w, http.StatusBadRequest, "Title and event date are required")
+	if req.Title == "" {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Title is required")
+		return
+	}
+
+	if eventDate.IsZero() {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Event date is required")
 		return
 	}
 
 	// Validate event date is not in the past
-	if req.EventDate.Before(time.Now()) {
+	if eventDate.Before(time.Now()) {
 		utils.ErrorResponse(w, http.StatusBadRequest, "Event date cannot be in the past")
 		return
 	}
 
+	// Set default values for optional fields
+	maxParticipants := 50
+	if req.MaxParticipants != nil {
+		maxParticipants = *req.MaxParticipants
+	}
+
+	bannerImage := ""
+	if req.BannerImage != nil {
+		bannerImage = *req.BannerImage
+	}
+
+	// Create event with parsed date
 	event := models.Event{
 		Title:           req.Title,
 		Description:     &req.Description,
-		EventDate:       req.EventDate,
+		EventDate:       eventDate,
 		Location:        &req.Location,
-		MaxParticipants: &req.MaxParticipants,
-		BannerImage:     &req.BannerImage,
+		MaxParticipants: &maxParticipants,
+		BannerImage:     &bannerImage,
 		Category:        &req.Category,
 		CreatedBy:       &userID,
 		IsActive:        true,
 	}
 
+	fmt.Printf("DEBUG: Creating event: %+v\n", event)
+
 	if result := h.db.Create(&event); result.Error != nil {
+		fmt.Printf("DEBUG: Database error: %v\n", result.Error)
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to create event")
 		return
 	}
 
 	// Load the created event with relationships
 	h.db.Preload("Creator").First(&event, event.ID)
+
+	fmt.Printf("DEBUG: Event created successfully: %+v\n", event)
 	utils.SuccessResponse(w, event)
 }
 

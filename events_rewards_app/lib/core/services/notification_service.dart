@@ -439,7 +439,7 @@ class NotificationService {
 
     await showNotification(
       id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title: '🎉 New Reward Earned!',
+      title: 'New Reward Earned!',
       body: 'Congratulations! You earned: $rewardName',
       payload: payload,
       channel: NotificationChannel.rewards,
@@ -457,7 +457,7 @@ class NotificationService {
 
     await showNotification(
       id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title: '📰 Latest News',
+      title: 'Latest News',
       body: newsTitle,
       payload: payload,
       channel: NotificationChannel.news,

@@ -44,55 +44,53 @@ class EventsProvider with ChangeNotifier {
   }
 
   // Add to EventsProvider
-Future<bool> createEvent({
-  required String title,
-  required String description, 
-  required DateTime eventDate,
-  required String location,
-  String? category,
-  int? maxParticipants,
-  String? bannerImage,
-}) async {
-  try {
-    _setLoading(true);
-    _clearError();
+  Future<bool> createEvent({
+    required String title,
+    required String description, 
+    required DateTime eventDate,
+    required String location,
+    String? category,
+    int? maxParticipants,
+    String? bannerImage,
+  }) async {
+    try {
+      _setLoading(true);
+      _clearError();
 
-    final eventData = {
-      'title': title,
-      'description': description,
-      'eventdate': eventDate.toUtc().toIso8601String(),
-      'location': location,
-      'category': category ?? 'general',
-      'maxparticipants': maxParticipants,
-      'bannerimage': bannerImage,
-    };
+      final eventData = {
+        'title': title,
+        'description': description,
+        'eventdate': eventDate.toUtc().toIso8601String(),
+        'location': location,
+        'category': category ?? 'general',
+        'maxparticipants': maxParticipants,
+        'bannerimage': bannerImage,
+      };
 
-    print("🔍 DEBUG: Sending event data: ${jsonEncode(eventData)}");
+      print("DEBUG: Sending event data: ${jsonEncode(eventData)}");
 
-    final result = await _apiService.createEvent(eventData);
-    
-    print("🔍 DEBUG: API Response: $result");
-    
-    // Check if the response indicates success
-    if (result['success'] == true || result.containsKey('id') || result.containsKey('event')) {
-      await loadEvents();
-      return true;
-    } else {
-      // Handle the error response
-      final errorMessage = result['message'] ?? result['error'] ?? 'Failed to create event';
-      _setError(errorMessage);
+      final result = await _apiService.createEvent(eventData);
+      
+      print("DEBUG: API Response: $result");
+      
+      // Check if the response indicates success
+      if (result['success'] == true || result.containsKey('id') || result.containsKey('event')) {
+        await loadEvents();
+        return true;
+      } else {
+        // Handle the error response
+        final errorMessage = result['message'] ?? result['error'] ?? 'Failed to create event';
+        _setError(errorMessage);
+        return false;
+      }
+    } catch (e) {
+      print("DEBUG: Exception: $e");
+      _setError('Failed to create event: $e');
       return false;
+    } finally {
+      _setLoading(false);
     }
-  } catch (e) {
-    print("🔍 DEBUG: Exception: $e");
-    _setError('Failed to create event: $e');
-    return false;
-  } finally {
-    _setLoading(false);
   }
-}
-
-
 
   // Load events
   Future<void> loadEvents({bool refresh = false}) async {
@@ -132,8 +130,7 @@ Future<bool> createEvent({
         } else {
           _events.addAll(newEvents);
         }
-
-        _hasMoreData = newEvents.length >= 20; // Assuming page size is 20
+        _hasMoreData = newEvents.length >= 20; 
         _currentPage++;
 
         notifyListeners();

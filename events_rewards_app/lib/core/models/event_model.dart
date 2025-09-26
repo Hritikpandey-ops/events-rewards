@@ -1,14 +1,15 @@
+
 class EventModel {
   final String id;
   final String title;
   final String description;
-  final String? category;
+  final String? category;        
   final String location;
   final DateTime startDate;
-  final DateTime? endDate;
-  final String? bannerImage;
+  final DateTime? endDate;       
+  final String? bannerImage;     
   final int currentParticipants;
-  final int? maxParticipants;
+  final int? maxParticipants;    
   final bool isActive;
   final bool isRegistered;
   final DateTime createdAt;
@@ -17,13 +18,13 @@ class EventModel {
     required this.id,
     required this.title,
     required this.description,
-    this.category,
+    this.category,               
     required this.location,
     required this.startDate,
-    this.endDate,
-    this.bannerImage,
+    this.endDate,                
+    this.bannerImage,            
     this.currentParticipants = 0,
-    this.maxParticipants,
+    this.maxParticipants,        
     this.isActive = true,
     this.isRegistered = false,
     required this.createdAt,
@@ -32,21 +33,31 @@ class EventModel {
   // Factory constructor from JSON
   factory EventModel.fromJson(Map<String, dynamic> json) {
     return EventModel(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String,
-      category: json['category'] as String?,
-      location: json['location'] as String,
-      startDate: DateTime.parse(json['start_date'] as String),
-      endDate: json['end_date'] != null 
-          ? DateTime.parse(json['end_date'] as String)
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      category: json['category'] as String?,  
+      location: json['location'] as String? ?? '',
+      
+      startDate: json['eventdate'] != null 
+          ? DateTime.parse(json['eventdate'] as String)
+          : (json['startdate'] != null 
+              ? DateTime.parse(json['startdate'] as String)
+              : DateTime.now()),
+      
+      endDate: json['enddate'] != null 
+          ? DateTime.parse(json['enddate'] as String) 
           : null,
-      bannerImage: json['banner_image'] as String?,
-      currentParticipants: json['current_participants'] as int? ?? 0,
-      maxParticipants: json['max_participants'] as int?,
-      isActive: json['is_active'] as bool? ?? true,
-      isRegistered: json['is_registered'] as bool? ?? false,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      
+      bannerImage: json['bannerimage'] as String?, 
+      currentParticipants: json['currentparticipants'] as int? ?? 0,
+      maxParticipants: json['maxparticipants'] as int?, 
+      isActive: json['isactive'] as bool? ?? true,
+      isRegistered: json['isregistered'] as bool? ?? false,
+      
+      createdAt: json['createdat'] != null 
+          ? DateTime.parse(json['createdat'] as String)
+          : DateTime.now(),
     );
   }
 

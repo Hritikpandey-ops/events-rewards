@@ -63,13 +63,13 @@ type EventFilter struct {
 }
 
 type CreateEventRequest struct {
-	Title           string    `json:"title" validate:"required"`
-	Description     string    `json:"description"`
-	EventDate       time.Time `json:"event_date" validate:"required"`
-	Location        string    `json:"location"`
-	MaxParticipants int       `json:"max_participants"`
-	BannerImage     string    `json:"banner_image"`
-	Category        string    `json:"category"`
+	Title           string  `json:"title" validate:"required"`
+	Description     string  `json:"description"`
+	EventDateStr    string  `json:"eventdate" validate:"required"`
+	Location        string  `json:"location"`
+	MaxParticipants *int    `json:"maxparticipants"`
+	BannerImage     *string `json:"bannerimage"`
+	Category        string  `json:"category"`
 }
 
 type UpdateEventRequest struct {

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:math' as math;
 import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
 import '../../providers/events_provider.dart';
@@ -144,35 +145,38 @@ class HomeTab extends StatelessWidget {
           ),
         ],
       ),
-      body: Consumer3<HomeProvider, EventsProvider, NewsProvider>(
-        builder: (context, homeProvider, eventsProvider, newsProvider, child) {
-          if (homeProvider.isLoading) {
-            return const Center(child: LoadingWidget());
-          }
+      body: SafeArea(
+        child: Consumer3<HomeProvider, EventsProvider, NewsProvider>(
+          builder: (context, homeProvider, eventsProvider, newsProvider, child) {
+            if (homeProvider.isLoading) {
+              return const Center(child: LoadingWidget());
+            }
 
-          if (homeProvider.error != null) {
-            return CustomErrorWidget(
-              message: homeProvider.error!,
-              onRetry: () => homeProvider.loadUIConfig(),
+            if (homeProvider.error != null) {
+              return CustomErrorWidget(
+                message: homeProvider.error!,
+                onRetry: () => homeProvider.loadUIConfig(),
+              );
+            }
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildWelcomeSection(context),
+                  const SizedBox(height: 24),
+                  _buildQuickActions(context),
+                  const SizedBox(height: 24),
+                  _buildFeaturedEvents(context, eventsProvider),
+                  const SizedBox(height: 24),
+                  _buildLatestNews(context, newsProvider),
+                  const SizedBox(height: 16),
+                ],
+              ),
             );
-          }
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildWelcomeSection(context),
-                const SizedBox(height: 24),
-                _buildQuickActions(context),
-                const SizedBox(height: 24),
-                _buildFeaturedEvents(context, eventsProvider),
-                const SizedBox(height: 24),
-                _buildLatestNews(context, newsProvider),
-              ],
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -217,7 +221,6 @@ class HomeTab extends StatelessWidget {
       },
     );
   }
-
 
   Widget _buildQuickActions(BuildContext context) {
     return Column(
@@ -299,6 +302,7 @@ class HomeTab extends StatelessWidget {
           ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
@@ -312,6 +316,8 @@ class HomeTab extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
             Text(
@@ -320,6 +326,8 @@ class HomeTab extends StatelessWidget {
                 color: AppColors.textSecondaryColor,
               ),
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -330,6 +338,7 @@ class HomeTab extends StatelessWidget {
   Widget _buildFeaturedEvents(BuildContext context, EventsProvider eventsProvider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -350,17 +359,18 @@ class HomeTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         if (eventsProvider.isLoading)
-          const Center(child: LoadingWidget())
+          const SizedBox(height: 200, child: Center(child: LoadingWidget()))
         else if (eventsProvider.events.isEmpty)
-          const Center(
-            child: Text('No events available'),
+          const SizedBox(
+            height: 100,
+            child: Center(child: Text('No events available')),
           )
         else
           SizedBox(
-            height: 200,
+            height: 220, // Increased height to accommodate content
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: eventsProvider.events.take(5).length,
+              itemCount: math.min(eventsProvider.events.length, 5),
               itemBuilder: (context, index) {
                 final event = eventsProvider.events[index];
                 return _buildEventCard(context, event);
@@ -373,90 +383,96 @@ class HomeTab extends StatelessWidget {
 
   Widget _buildEventCard(BuildContext context, EventModel event) {
     final theme = Theme.of(context);
+    // ignore: unused_local_variable
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).pushNamed('/event-detail', arguments: event.id);
-      },
-      child: Container(
-        width: 300,
-        margin: const EdgeInsets.only(right: 16),
-        decoration: BoxDecoration(
-          color: isDarkMode ? AppColors.darkCardColor : AppColors.cardColor,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Event banner
-            Container(
-              height: 120,
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                color: AppColors.primaryColor.withOpacity(0.1),
+    return Container(
+      width: 280, // Slightly reduced width
+      margin: const EdgeInsets.only(right: 12),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.of(context).pushNamed('/event-detail', arguments: event.id);
+        },
+        child: Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Event banner
+              Container(
+                height: 120,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  color: AppColors.primaryColor.withOpacity(0.1),
+                ),
+                child: event.bannerImage != null
+                    ? ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        child: CachedNetworkImage(
+                          imageUrl: event.bannerImage!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          placeholder: (context, url) => const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                          errorWidget: (context, url, error) => const Center(
+                            child: Icon(
+                              Icons.event,
+                              size: 48,
+                              color: AppColors.primaryColor,
+                            ),
+                          ),
+                        ),
+                      )
+                    : const Center(
+                        child: Icon(
+                          Icons.event,
+                          size: 48,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
               ),
-              child: event.bannerImage != null
-                  ? CachedNetworkImage(
-                      imageUrl: event.bannerImage!,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => const Center(
-                        child: CircularProgressIndicator(),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      event.title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
-                      errorWidget: (context, url, error) => const Icon(
-                        Icons.event,
-                        size: 48,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      event.location,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondaryColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${event.startDate.day}/${event.startDate.month}/${event.startDate.year}',
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: AppColors.primaryColor,
-                      ),
-                    )
-                  : const Center(
-                      child: Icon(
-                        Icons.event,
-                        size: 48,
-                        color: AppColors.primaryColor,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    event.location,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondaryColor,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${event.startDate.day}/${event.startDate.month}/${event.startDate.year}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.primaryColor,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -465,6 +481,7 @@ class HomeTab extends StatelessWidget {
   Widget _buildLatestNews(BuildContext context, NewsProvider newsProvider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -494,7 +511,7 @@ class HomeTab extends StatelessWidget {
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: newsProvider.news.take(3).length,
+            itemCount: math.min(newsProvider.news.length, 3),
             itemBuilder: (context, index) {
               final news = newsProvider.news[index];
               return _buildNewsCard(context, news);
@@ -514,7 +531,7 @@ class HomeTab extends StatelessWidget {
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isDarkMode ? AppColors.darkCardColor : AppColors.cardColor,
           borderRadius: BorderRadius.circular(12),
@@ -527,11 +544,11 @@ class HomeTab extends StatelessWidget {
           ],
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // News image
             Container(
-              width: 80,
-              height: 80,
+              width: 70,
+              height: 70,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
                 color: AppColors.primaryColor.withOpacity(0.1),
@@ -553,10 +570,11 @@ class HomeTab extends StatelessWidget {
                       color: AppColors.primaryColor,
                     ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     news.title,
@@ -576,7 +594,7 @@ class HomeTab extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     '${news.createdAt.day}/${news.createdAt.month}/${news.createdAt.year}',
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -603,34 +621,36 @@ class NewsTab extends StatelessWidget {
         title: const Text('News'),
         automaticallyImplyLeading: false,
       ),
-      body: Consumer<NewsProvider>(
-        builder: (context, newsProvider, child) {
-          if (newsProvider.isLoading) {
-            return const Center(child: LoadingWidget());
-          }
+      body: SafeArea(
+        child: Consumer<NewsProvider>(
+          builder: (context, newsProvider, child) {
+            if (newsProvider.isLoading) {
+              return const Center(child: LoadingWidget());
+            }
 
-          if (newsProvider.error != null) {
-            return CustomErrorWidget(
-              message: newsProvider.error!,
-              onRetry: () => newsProvider.loadNews(),
+            if (newsProvider.error != null) {
+              return CustomErrorWidget(
+                message: newsProvider.error!,
+                onRetry: () => newsProvider.loadNews(),
+              );
+            }
+
+            if (newsProvider.news.isEmpty) {
+              return const Center(
+                child: Text('No news available'),
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: newsProvider.news.length,
+              itemBuilder: (context, index) {
+                final news = newsProvider.news[index];
+                return _buildNewsItem(context, news);
+              },
             );
-          }
-
-          if (newsProvider.news.isEmpty) {
-            return const Center(
-              child: Text('No news available'),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: newsProvider.news.length,
-            itemBuilder: (context, index) {
-              final news = newsProvider.news[index];
-              return _buildNewsItem(context, news);
-            },
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -658,8 +678,8 @@ class NewsTab extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // News image
             if (news.imageUrl != null)
               Container(
                 height: 200,
@@ -689,6 +709,7 @@ class NewsTab extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     news.title,

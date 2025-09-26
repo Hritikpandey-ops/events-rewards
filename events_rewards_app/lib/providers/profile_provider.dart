@@ -27,25 +27,25 @@ class ProfileProvider with ChangeNotifier {
   // Verification status getters
 bool get hasSelfie {
   final result = user?.hasSelfie ?? false;
-  print("🔍 ProfileProvider.hasSelfie: $result (user: ${user?.hasSelfie})");
+  print("ProfileProvider.hasSelfie: $result (user: ${user?.hasSelfie})");
   return result;
 }
 
 bool get hasVoice {
   final result = user?.hasVoice ?? false;
-  print("🔍 ProfileProvider.hasVoice: $result (user: ${user?.hasVoice})");
+  print("ProfileProvider.hasVoice: $result (user: ${user?.hasVoice})");
   return result;
 }
 
 bool get isVerified {
   final result = user?.isVerified ?? false;
-  print("🔍 ProfileProvider.isVerified: $result (user: ${user?.isVerified})");
+  print("ProfileProvider.isVerified: $result (user: ${user?.isVerified})");
   return result;
 }
 
 bool get canVerifyIdentity {
   final result = hasSelfie && hasVoice && !isVerified;
-  print("🔍 ProfileProvider.canVerifyIdentity: $result (hasSelfie=$hasSelfie, hasVoice=$hasVoice, isVerified=$isVerified)");
+  print("ProfileProvider.canVerifyIdentity: $result (hasSelfie=$hasSelfie, hasVoice=$hasVoice, isVerified=$isVerified)");
   return result;
 }
 
@@ -66,21 +66,21 @@ Future<void> loadProfile() async {
     _setLoading(true);
     _clearError();
     
-    print("🔍 ProfileProvider.loadProfile() called");
+    print("ProfileProvider.loadProfile() called");
     
     // Use the correct method that returns AuthResult
     final result = await _authService.getProfile();
-    print("🔍 loadProfile got result: success=${result.success}");
+    print("loadProfile got result: success=${result.success}");
     
     if (result.success && result.userData != null) {
       _user = UserModel.fromJson(result.userData!);
-      print("🔍 ProfileProvider set user: hasSelfie=${_user?.hasSelfie}, hasVoice=${_user?.hasVoice}");
+      print("ProfileProvider set user: hasSelfie=${_user?.hasSelfie}, hasVoice=${_user?.hasVoice}");
       notifyListeners();  
     } else {
       _setError(result.message);
     }
   } catch (e) {
-    print("🔍 ProfileProvider.loadProfile() error: $e");
+    print("ProfileProvider.loadProfile() error: $e");
     _setError('Failed to load profile: $e');
   } finally {
     _setLoading(false);

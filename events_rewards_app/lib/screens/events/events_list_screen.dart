@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // Add this import
 import '../../providers/events_provider.dart';
 import '../../core/models/event_model.dart';
 import 'create_event_screen.dart';
@@ -77,7 +78,7 @@ class _EventsListScreenState extends State<EventsListScreen>
                   icon: const Icon(Icons.filter_list),
                   onPressed: _showFilterBottomSheet,
                 ),
-                 IconButton(
+                IconButton(
                   icon: const Icon(Icons.add),
                   onPressed: () {
                     Navigator.push(
@@ -93,7 +94,6 @@ class _EventsListScreenState extends State<EventsListScreen>
                 controller: _tabController,
                 indicatorColor: theme.colorScheme.onPrimary,
                 labelColor: theme.colorScheme.onPrimary,
-                // ignore: deprecated_member_use
                 unselectedLabelColor: theme.colorScheme.onPrimary.withOpacity(0.7),
                 tabs: const [
                   Tab(text: 'All Events'),
@@ -341,8 +341,8 @@ class _EventsListScreenState extends State<EventsListScreen>
 
     if (success && mounted) {
       final message = event.isRegistered 
-          ? 'Successfully unregistered from \${event.title}'
-          : 'Successfully registered for \${event.title}';
+          ? 'Successfully unregistered from ${event.title}'
+          : 'Successfully registered for ${event.title}';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
@@ -437,6 +437,16 @@ class EventCard extends StatelessWidget {
     this.showRegistrationStatus = false,
   });
 
+  // Helper method to format date
+  String _formatDate(DateTime date) {
+    return DateFormat('MMM dd, yyyy').format(date);
+  }
+
+  // Helper method to format time
+  String _formatTime(DateTime date) {
+    return DateFormat('hh:mm a').format(date);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -461,7 +471,6 @@ class EventCard extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: [
                       theme.colorScheme.primary,
-                      // ignore: deprecated_member_use
                       theme.colorScheme.primary.withOpacity(0.8),
                     ],
                   ),
@@ -476,7 +485,6 @@ class EventCard extends StatelessWidget {
                               gradient: LinearGradient(
                                 colors: [
                                   theme.colorScheme.primary,
-                                  // ignore: deprecated_member_use
                                   theme.colorScheme.primary.withOpacity(0.8),
                                 ],
                               ),
@@ -519,19 +527,24 @@ class EventCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       if (event.category != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            event.category!,
-                            style: TextStyle(
-                              color: theme.colorScheme.onPrimaryContainer,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              event.category!,
+                              style: TextStyle(
+                                color: theme.colorScheme.onPrimaryContainer,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
@@ -544,7 +557,6 @@ class EventCard extends StatelessWidget {
                   Text(
                     event.description,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      // ignore: deprecated_member_use
                       color: theme.colorScheme.onSurface.withOpacity(0.7),
                     ),
                     maxLines: 2,
@@ -553,76 +565,75 @@ class EventCard extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  // Event details
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 16,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '\${event.formattedDate} at \${event.formattedTime}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                  // Event details - FIXED: Using actual event date instead of formatted properties
+                  _buildEventDetailRow(
+                    icon: Icons.access_time,
+                    text: '${_formatDate(event.startDate)} at ${_formatTime(event.startDate)}',
+                    color: theme.colorScheme.primary,
                   ),
 
                   const SizedBox(height: 4),
 
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.location_on,
-                        size: 16,
-                        // ignore: deprecated_member_use
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          event.location,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            // ignore: deprecated_member_use
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+                  _buildEventDetailRow(
+                    icon: Icons.location_on,
+                    text: event.location,
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
                   ),
+
+                  // Show time until event if enabled
+                  if (showTimeUntil && event.isUpcoming) ...[
+                    const SizedBox(height: 4),
+                    _buildEventDetailRow(
+                      icon: Icons.schedule,
+                      text: _getTimeUntilEvent(event.startDate),
+                      color: Colors.orange,
+                    ),
+                  ],
+
+                  // Show registration status if enabled
+                  if (showRegistrationStatus) ...[
+                    const SizedBox(height: 4),
+                    _buildEventDetailRow(
+                      icon: Icons.check_circle,
+                      text: 'Registered',
+                      color: Colors.green,
+                    ),
+                  ],
 
                   const SizedBox(height: 12),
                   
                   // Participants and registration button
                   Row(
                     children: [
-                      Text(
-                        '\${event.currentParticipants} participants',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          // ignore: deprecated_member_use
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      Expanded(
+                        child: Text(
+                          '${event.currentParticipants} participants',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 8),
                       if (onRegister != null)
-                        ElevatedButton(
-                          onPressed: event.hasAvailableSlots ? onRegister : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: event.isRegistered
-                                ? theme.colorScheme.surfaceContainerHighest
-                                : theme.colorScheme.primary,
-                            foregroundColor: event.isRegistered
-                                ? theme.colorScheme.onSurfaceVariant
-                                : theme.colorScheme.onPrimary,
-                          ),
-                          child: Text(
-                            event.isRegistered ? 'Registered' : 'Register',
+                        Flexible(
+                          child: ElevatedButton(
+                            onPressed: event.hasAvailableSlots ? onRegister : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: event.isRegistered
+                                  ? theme.colorScheme.surfaceContainerHighest
+                                  : theme.colorScheme.primary,
+                              foregroundColor: event.isRegistered
+                                  ? theme.colorScheme.onSurfaceVariant
+                                  : theme.colorScheme.onPrimary,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              minimumSize: const Size(0, 36),
+                            ),
+                            child: Text(
+                              event.isRegistered ? 'Registered' : 'Register',
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           ),
                         ),
                     ],
@@ -634,5 +645,50 @@ class EventCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildEventDetailRow({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: color,
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Helper method to get time until event
+  String _getTimeUntilEvent(DateTime eventDate) {
+    final now = DateTime.now();
+    final difference = eventDate.difference(now);
+
+    if (difference.inDays > 0) {
+      return 'In ${difference.inDays} day${difference.inDays > 1 ? 's' : ''}';
+    } else if (difference.inHours > 0) {
+      return 'In ${difference.inHours} hour${difference.inHours > 1 ? 's' : ''}';
+    } else if (difference.inMinutes > 0) {
+      return 'In ${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''}';
+    } else {
+      return 'Starting soon';
+    }
   }
 }

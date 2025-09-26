@@ -269,20 +269,20 @@ class ApiService {
   // Events endpoints
   Future<Map<String, dynamic>> createEvent(Map<String, dynamic> eventData) async {
     try {
-      print("🔍 DEBUG: Sending to ${ApiConstants.events}");
-      print("🔍 DEBUG: Data: ${jsonEncode(eventData)}");
+      print("DEBUG: Sending to ${ApiConstants.events}");
+      print("DEBUG: Data: ${jsonEncode(eventData)}");
       
       final response = await dio.post(
         ApiConstants.events, 
         data: eventData,
       );
       
-      print("🔍 DEBUG: Success Response: ${response.data}");
+      print("DEBUG: Success Response: ${response.data}");
       return response.data;
       
     } on DioException catch (e) {
-      print("🔍 DEBUG: DioException: ${e.response?.statusCode}");
-      print("🔍 DEBUG: Response data: ${e.response?.data}");
+      print("DEBUG: DioException: ${e.response?.statusCode}");
+      print("DEBUG: Response data: ${e.response?.data}");
       
       // Handle 400 Bad Request specifically
       if (e.response?.statusCode == 400) {
@@ -300,7 +300,7 @@ class ApiService {
       // For other errors, use the existing error handler
       throw _handleError(e);
     } catch (e) {
-      print("🔍 DEBUG: Generic Exception: $e");
+      print("DEBUG: Generic Exception: $e");
       throw Exception("An unexpected error occurred: $e");
     }
   }
@@ -562,12 +562,9 @@ class ErrorInterceptor extends Interceptor {
     // Handle retry logic for specific status codes
     if (ApiConstants.retryStatusCodes.contains(err.response?.statusCode)) {
       _logger.info('Retryable error detected for status code: ${err.response?.statusCode}');
-      // Implement retry logic if needed
-      // For now, just pass through
     }
 
     handler.next(err);
   }
 
-  
 }
