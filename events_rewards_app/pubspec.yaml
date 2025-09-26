@@ -1,0 +1,206 @@
+name: events_rewards_app
+description: |
+  Dynamic Events & Rewards App with Identity Verification
+  A comprehensive mobile application for discovering events, winning rewards,
+  and identity verification with selfie capture and voice recording.
+
+# Prevent publishing to pub.dev
+publish_to: 'none'
+
+# App version
+version: 1.0.0+1
+
+# Flutter SDK version constraints
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+# Main dependencies
+dependencies:
+  flutter:
+    sdk: flutter
+  logging: ^1.2.0
+
+  # Core Utilities
+  cupertino_icons: ^1.0.6
+
+  # State Management
+  provider: ^6.1.1
+
+  # HTTP & Networking
+  http: ^1.1.2
+  dio: ^5.4.0
+  connectivity_plus: ^5.0.2
+  http_parser: ^4.1.2
+
+  # Local Storage & Caching
+  shared_preferences: ^2.2.2
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.1
+  sqflite: ^2.3.0
+
+  # Image Handling & Caching
+  cached_network_image: ^3.3.0
+  image: ^4.1.3
+  image_picker: ^1.0.4
+
+  # Camera & Media
+  camera_web: ^0.3.2
+  camera: ^0.10.5+7
+  permission_handler: ^11.1.0
+  google_mlkit_face_detection: 0.5.0
+  google_mlkit_commons: ^0.2.0
+
+  # Audio Recording & Playback
+  audioplayers: ^5.2.1
+  path: ^1.8.3
+  record: ^5.0.4
+
+  # Location Services
+  geolocator: ^10.1.0
+  geocoding: ^2.1.1
+
+  # Device Information
+  device_info_plus: ^9.1.0
+  package_info_plus: ^4.2.0
+
+  # UI Components & Animation
+  flutter_spinkit: ^5.2.0
+  shimmer: ^3.0.0
+  lottie: ^2.7.0
+  animations: ^2.0.8
+
+  # Firebase & Push Notifications
+  firebase_core: ^4.1.1
+  firebase_messaging: ^16.0.2
+  flutter_local_notifications: ^16.3.0
+
+  # Lucky Draw & Games
+  flutter_fortune_wheel: ^1.3.0
+
+  # Social & Sharing
+  share_plus: ^7.2.1
+  url_launcher: ^6.2.2
+
+  # Utilities
+  intl: ^0.18.1
+  uuid: ^4.2.1
+  crypto: ^3.0.3
+  timezone: ^0.9.4
+
+  # JSON & Serialization
+  json_annotation: ^4.8.1
+
+  # File System
+  file_selector: ^0.9.3
+  open_file: ^3.3.2
+  file_picker: ^6.1.1
+  
+
+  # Video Player (for potential future features)
+  video_player: ^2.8.1
+
+  # QR Code (for potential event check-ins)
+  qr_flutter: ^4.1.0
+
+  # Biometric Authentication (for enhanced security)
+  local_auth: ^2.1.7
+
+  # WebView (for potential web content)
+  webview_flutter: ^4.4.2
+
+# Development dependencies
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Linting & Code Quality
+  flutter_lints: ^3.0.1
+
+  # Code Generation
+  build_runner: ^2.4.7
+  json_serializable: ^6.7.1
+  hive_generator: ^2.0.1
+
+  # Testing
+  mockito: ^5.4.2
+  integration_test:
+    sdk: flutter
+
+  # Icons & Launcher
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.3.7
+
+# Flutter configuration
+flutter:
+  uses-material-design: true
+
+  # Fonts configuration
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Poppins-ExtraBold.ttf
+          weight: 800
+
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+
+# Flutter Launcher Icons Configuration
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+    background_color: "#2196F3"
+    theme_color: "#2196F3"
+  windows:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+    icon_size: 48
+  macos:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+
+# Native Splash Screen Configuration
+flutter_native_splash:
+  color: "#2196F3"
+  image: assets/icons/splash_logo.png
+  branding: assets/icons/branding.png
+  color_dark: "#1976D2"
+  image_dark: assets/icons/splash_logo_dark.png
+  branding_dark: assets/icons/branding_dark.png
+
+  android_12:
+    image: assets/icons/splash_logo.png
+    icon_background_color: "#2196F3"
+    image_dark: assets/icons/splash_logo_dark.png
+    icon_background_color_dark: "#1976D2"
+
+  web: false
+  android_gravity: center
+  ios_content_mode: center
+  fullscreen: true
+
+# Dependency Overrides (if needed for compatibility)
+dependency_overrides:
+  # Add any dependency overrides here if needed
+  # example:
+  # meta: ^1.9.1

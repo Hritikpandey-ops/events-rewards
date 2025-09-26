@@ -1,0 +1,94 @@
+Events & Rewards Platform
+
+A comprehensive monorepo-based event management and rewards system built with Flutter (frontend)
+and Go (backend), featuring event creation, participation, lucky draws, and reward redemption.
+
+Overview
+
+The Events & Rewards Platform is a full-stack application that allows users to:
+Create and manage events
+Register for events and participate
+Engage with a lucky draw system
+Earn and redeem rewards
+Manage user profiles with identity verification
+Browse news and content
+
+Tech Stack
+
+Frontend
+Flutter - Cross-platform mobile/web framework
+Dart - Programming language
+Provider - State management
+Dio - HTTP client
+Material Design - UI components
+
+Backend
+Go (Golang) - Server-side programming
+Gorilla Mux - HTTP router and dispatcher
+GORM - ORM library
+JWT - Authentication tokens
+UUID - Unique identifiers
+
+Database & Storage
+PostgreSQL - Primary database
+MinIO - Object storage for files/documents
+Docker - Containerization
+
+Infrastructure
+Docker Compose - Multi-container orchestration
+CORS - Cross-origin resource sharing
+RESTful API - API architecture
+
+Features
+
+Event Management
+Create events with date, location, and participant limits
+Event registration and unregistration
+Real-time participant tracking
+Event categories and filtering
+Event image/banner support
+
+Lucky Draw System
+Spin-based reward system
+Daily spin limits and cooldowns
+Multiple reward types (points, vouchers, discounts)
+Reward redemption tracking
+
+User Management
+User authentication with JWT
+Profile management
+Identity verification with selfie/voice capture
+Role-based access control
+
+Rewards System
+Earn rewards through event participation
+Track earned, redeemed, and expired rewards
+Multiple reward categories
+Redemption history
+
+Mobile Features
+Cross-platform support (iOS/Android/Web)
+Responsive design
+Dark/light theme support
+Push notifications
+Offline capability
+
+Prerequisites
+Before running this application, ensure you have:
+Flutter SDK (≥3.0.0)
+Go (≥1.19)
+Docker & Docker Compose
+PostgreSQL (≥12)
+MinIO Server
+Git
+
+Installation
+Clone the Repository
+Backend Setup
+    cd events-rewards-backend
+    go mod download
+Frontend Setup
+    cd events_rewards_app
+    flutter pub get
+Docker Services Setup
+    docker-compose up
