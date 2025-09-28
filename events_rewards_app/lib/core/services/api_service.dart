@@ -305,6 +305,64 @@ class ApiService {
     }
   }
 
+    // UPDATE EVENT - PUT /events/:id
+  Future<Map<String, dynamic>> updateEvent(String eventId, Map<String, dynamic> updateData) async {
+    try {
+      final response = await dio.put(
+        ApiConstants.eventDetails(eventId), // Use your constant with parameter
+        data: updateData,
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
+      
+      return response.data;
+    } on DioException catch (e) {
+      print('DioException in updateEvent: ${e.response?.data}');
+      rethrow;
+    } catch (e) {
+      print('Exception in updateEvent: $e');
+      rethrow;
+    }
+  }
+
+  // DELETE EVENT - DELETE /events/:id
+  Future<Map<String, dynamic>> deleteEvent(String eventId) async {
+    try {
+      final response = await dio.delete(
+        ApiConstants.eventDetails(eventId), // Use your constant with parameter
+      );
+      return response.data;
+    } on DioException catch (e) {
+      print('DioException in deleteEvent: ${e.response?.data}');
+      rethrow;
+    } catch (e) {
+      print('Exception in deleteEvent: $e');
+      rethrow;
+    }
+  }
+
+  // GET USER'S CREATED EVENTS - GET /events/user
+  Future<Map<String, dynamic>> getMyEvents({int page = 1, int limit = 20}) async {
+    try {
+      final response = await dio.get(
+        ApiConstants.userEvents, // Use your constant
+        queryParameters: {
+          'page': page,
+          'limit': limit,
+        },
+      );
+      
+      return response.data;
+    } on DioException catch (e) {
+      print('DioException in getMyEvents: ${e.response?.data}');
+      rethrow;
+    } catch (e) {
+      print('Exception in getMyEvents: $e');
+      rethrow;
+    }
+  }
+
 
   // Lucky draw endpoints
   Future<Map<String, dynamic>> getLuckyDrawConfig() async {

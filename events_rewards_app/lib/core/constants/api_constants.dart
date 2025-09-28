@@ -29,10 +29,10 @@ class ApiConstants {
 
   // Events endpoints
   static const String events = '/events';
+  static const String userEvents = '/user/events';
   static String eventDetails(String id) => '/events/$id';
   static String registerEvent(String id) => '/events/$id/register';
   static String unregisterEvent(String id) => '/events/$id/unregister';
-  static const String userEvents = '/events/user';
 
   // News endpoints
   static const String news = '/news';

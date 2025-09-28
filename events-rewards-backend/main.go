@@ -115,10 +115,13 @@ func main() {
 	protected.HandleFunc("/user/profile", authHandler.GetUserProfile).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/user/upload-selfie", authHandler.UploadSelfie).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/user/upload-voice", authHandler.UploadVoice).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/user/events", eventHandler.GetUserEvents).Methods("GET", "OPTIONS")
 
 	// Event routes (protected) - WITH OPTIONS SUPPORT
 	protected.HandleFunc("/events", eventHandler.CreateEvent).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/events", eventHandler.GetEvents).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/events/{id}", eventHandler.UpdateEvent).Methods("PUT", "OPTIONS")
+	protected.HandleFunc("/events/{id}", eventHandler.DeleteEvent).Methods("DELETE", "OPTIONS")
 	protected.HandleFunc("/events/{id}/register", eventHandler.RegisterForEvent).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/events/{id}/unregister", eventHandler.UnregisterFromEvent).Methods("DELETE", "OPTIONS")
 	protected.HandleFunc("/events/my-events", eventHandler.GetUserRegistrations).Methods("GET", "OPTIONS")

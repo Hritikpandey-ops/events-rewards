@@ -29,6 +29,7 @@ import 'screens/news/news_detail_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/lucky_draw/lucky_draw_screen.dart';
 import 'screens/lucky_draw/my_rewards_screen.dart';
+import 'screens/events/manage_events_screen.dart';
 
 // Constants
 import 'core/constants/colors.dart';
@@ -93,6 +94,7 @@ class MyApp extends StatelessWidget {
               '/lucky-draw': (context) => const LuckyDrawScreen(),
               '/my-rewards': (context) => const MyRewardsScreen(),
               '/create-event': (context) => const CreateEventScreen(),
+              '/manage-events': (context) => const ManageEventsScreen(),
             },
             onGenerateRoute: (settings) {
               switch (settings.name) {

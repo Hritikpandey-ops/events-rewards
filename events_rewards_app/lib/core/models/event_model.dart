@@ -3,13 +3,13 @@ class EventModel {
   final String id;
   final String title;
   final String description;
-  final String? category;        
+  final String? category;
   final String location;
   final DateTime startDate;
-  final DateTime? endDate;       
-  final String? bannerImage;     
+  final DateTime? endDate;
+  final String? bannerImage;
   final int currentParticipants;
-  final int? maxParticipants;    
+  final int? maxParticipants;
   final bool isActive;
   final bool isRegistered;
   final DateTime createdAt;
@@ -18,67 +18,83 @@ class EventModel {
     required this.id,
     required this.title,
     required this.description,
-    this.category,               
+    this.category,
     required this.location,
     required this.startDate,
-    this.endDate,                
-    this.bannerImage,            
+    this.endDate,
+    this.bannerImage,
     this.currentParticipants = 0,
-    this.maxParticipants,        
+    this.maxParticipants,
     this.isActive = true,
     this.isRegistered = false,
     required this.createdAt,
   });
 
-  // Factory constructor from JSON
-  factory EventModel.fromJson(Map<String, dynamic> json) {
-    return EventModel(
-      id: json['id'] as String? ?? '',
-      title: json['title'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-      category: json['category'] as String?,  
-      location: json['location'] as String? ?? '',
-      
-      startDate: json['eventdate'] != null 
-          ? DateTime.parse(json['eventdate'] as String)
-          : (json['startdate'] != null 
-              ? DateTime.parse(json['startdate'] as String)
-              : DateTime.now()),
-      
-      endDate: json['enddate'] != null 
-          ? DateTime.parse(json['enddate'] as String) 
-          : null,
-      
-      bannerImage: json['bannerimage'] as String?, 
-      currentParticipants: json['currentparticipants'] as int? ?? 0,
-      maxParticipants: json['maxparticipants'] as int?, 
-      isActive: json['isactive'] as bool? ?? true,
-      isRegistered: json['isregistered'] as bool? ?? false,
-      
-      createdAt: json['createdat'] != null 
-          ? DateTime.parse(json['createdat'] as String)
-          : DateTime.now(),
-    );
+factory EventModel.fromJson(Map<String, dynamic> json) {
+  // Simple date parsing function
+  DateTime parseDate(dynamic dateString) {
+    if (dateString == null) return DateTime.now();
+    try {
+      return DateTime.parse(dateString.toString()).toLocal();
+    } catch (e) {
+      return DateTime.now();
+    }
   }
 
-  // Convert to JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'description': description,
-      'category': category,
-      'location': location,
-      'start_date': startDate.toIso8601String(),
-      'end_date': endDate?.toIso8601String(),
-      'banner_image': bannerImage,
-      'current_participants': currentParticipants,
-      'max_participants': maxParticipants,
-      'is_active': isActive,
-      'is_registered': isRegistered,
-      'created_at': createdAt.toIso8601String(),
-    };
+  int parseParticipants(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
+
+  bool checkIsRegistered(Map<String, dynamic> json) {
+    final registrations = json['registrations'] as List<dynamic>?;
+    if (registrations != null && registrations.isNotEmpty) {
+      return true;
+    }
+    return json['is_registered'] as bool? ?? false;
+  }
+
+  return EventModel(
+    id: json['id'] as String? ?? '',
+    title: json['title'] as String? ?? '',
+    description: json['description'] as String? ?? '',
+    category: json['category'] as String?,  
+    location: json['location'] as String? ?? '',
+    
+    startDate: parseDate(json['event_date']), 
+    
+    endDate: parseDate(json['end_date']), 
+    
+    bannerImage: json['banner_image'] as String?, 
+    currentParticipants: parseParticipants(json['current_participants']), 
+    maxParticipants: parseParticipants(json['max_participants']), 
+    isActive: json['is_active'] as bool? ?? true, 
+    isRegistered: checkIsRegistered(json),
+    
+    createdAt: parseDate(json['created_at']), 
+  );
+}
+
+  // Convert to JSON
+Map<String, dynamic> toJson() {
+  return {
+    'id': id,
+    'title': title,
+    'description': description,
+    'category': category,
+    'location': location,
+    'event_date': startDate.toUtc().toIso8601String(), 
+    'end_date': endDate?.toUtc().toIso8601String(),    
+    'banner_image': bannerImage,                       
+    'current_participants': currentParticipants,       
+    'max_participants': maxParticipants,               
+    'is_active': isActive,                             
+    'is_registered': isRegistered,                     
+    'created_at': createdAt.toUtc().toIso8601String(), 
+  };
+}
 
   // Helper getters
   bool get isPast => DateTime.now().isAfter(endDate ?? startDate);

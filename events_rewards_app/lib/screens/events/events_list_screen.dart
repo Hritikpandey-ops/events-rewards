@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // Add this import
+import 'package:intl/intl.dart'; 
 import '../../providers/events_provider.dart';
 import '../../core/models/event_model.dart';
 import 'create_event_screen.dart';
+import 'manage_events_screen.dart'; // Import the new screen
 
 class EventsListScreen extends StatefulWidget {
   const EventsListScreen({super.key});
@@ -78,17 +79,7 @@ class _EventsListScreenState extends State<EventsListScreen>
                   icon: const Icon(Icons.filter_list),
                   onPressed: _showFilterBottomSheet,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CreateEventScreen(),
-                      ),
-                    );
-                  },
-                ),
+                _buildEventsMenu(theme),
               ],
               bottom: TabBar(
                 controller: _tabController,
@@ -115,6 +106,95 @@ class _EventsListScreenState extends State<EventsListScreen>
       ),
     );
   }
+
+  Widget _buildEventsMenu(ThemeData theme) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert),
+      color: theme.colorScheme.surface,
+      elevation: 4,
+      onSelected: (value) {
+        _handleMenuSelection(value);
+      },
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(
+          value: 'create',
+          child: ListTile(
+            leading: Icon(Icons.add, color: Colors.blue),
+            title: Text('Create Event'),
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'manage',
+          child: ListTile(
+            leading: Icon(Icons.manage_accounts, color: Colors.green),
+            title: Text('Manage My Events'),
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'refresh',
+          child: ListTile(
+            leading: const Icon(Icons.refresh, color: Colors.orange),
+            title: const Text('Refresh Events'),
+            trailing: Consumer<EventsProvider>(
+              builder: (context, eventsProvider, child) {
+                if (eventsProvider.isLoading) {
+                  return const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  );
+                }
+                return const SizedBox();
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Handle menu selection
+  void _handleMenuSelection(String value) {
+    switch (value) {
+      case 'create':
+        _navigateToCreateEvent();
+        break;
+      case 'manage':
+        final result = Navigator.push<bool>(
+          context,
+          MaterialPageRoute(builder: (context) => const ManageEventsScreen()),
+        );
+        if (result == true) {
+          _loadEvents();
+        }
+        break;
+      case 'refresh':
+        _loadEvents();
+        break;
+    }
+  }
+
+  void _navigateToCreateEvent() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (context) => const CreateEventScreen()),
+    );
+    
+    if (result == true) {
+      _loadEvents();
+    }
+  }
+
+  // void _navigateToManageEvents() {
+  //   Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (context) => const ManageEventsScreen(),
+  //     ),
+  //   );
+  // }
+
 
   Widget _buildAllEventsTab() {
     return Consumer<EventsProvider>(
@@ -565,7 +645,7 @@ class EventCard extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  // Event details - FIXED: Using actual event date instead of formatted properties
+                  // Event details
                   _buildEventDetailRow(
                     icon: Icons.access_time,
                     text: '${_formatDate(event.startDate)} at ${_formatTime(event.startDate)}',

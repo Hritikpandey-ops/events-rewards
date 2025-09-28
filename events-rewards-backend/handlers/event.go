@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -130,6 +131,79 @@ func (h *EventHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.SuccessResponse(w, event)
+}
+
+// GetUserEvents - Get events created by the current user
+func (h *EventHandler) GetUserEvents(w http.ResponseWriter, r *http.Request) {
+	// Get current user ID from context
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok || userID == "" {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "User authentication required")
+		return
+	}
+
+	// Parse query parameters
+	query := r.URL.Query()
+	page, _ := strconv.Atoi(query.Get("page"))
+	limit, _ := strconv.Atoi(query.Get("limit"))
+
+	// Set defaults
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	offset := (page - 1) * limit
+
+	var events []models.Event
+	var totalCount int64
+
+	// Get total count
+	countResult := h.db.Model(&models.Event{}).
+		Where("created_by = ? AND is_active = ?", userID, true).
+		Count(&totalCount)
+
+	if countResult.Error != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to count events")
+		return
+	}
+
+	// Fetch events with pagination
+	result := h.db.
+		Preload("Creator").
+		Preload("Registrations").
+		Preload("Registrations.User").
+		Where("created_by = ? AND is_active = ?", userID, true).
+		Order("event_date ASC").
+		Offset(offset).
+		Limit(limit).
+		Find(&events)
+
+	if result.Error != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to fetch user events")
+		return
+	}
+
+	// Calculate pagination info
+	totalPages := int(math.Ceil(float64(totalCount) / float64(limit)))
+	hasNext := page < totalPages
+	hasPrev := page > 1
+
+	response := map[string]interface{}{
+		"events": events,
+		"pagination": map[string]interface{}{
+			"current_page": page,
+			"has_next":     hasNext,
+			"has_prev":     hasPrev,
+			"limit":        limit,
+			"total_count":  totalCount,
+			"total_pages":  totalPages,
+		},
+	}
+
+	utils.SuccessResponse(w, response)
 }
 
 // CreateEvent - Create a new event
@@ -299,6 +373,48 @@ func (h *EventHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.SuccessResponse(w, event)
+}
+
+// DeleteEvent - Delete an event (soft delete)
+func (h *EventHandler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	eventID := vars["id"]
+	if eventID == "" {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Event ID is required")
+		return
+	}
+
+	// Get user ID from context
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok || userID == "" {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "User authentication required")
+		return
+	}
+
+	var event models.Event
+	result := h.db.Where("id = ?", eventID).First(&event)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			utils.ErrorResponse(w, http.StatusNotFound, "Event not found")
+		} else {
+			utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to fetch event")
+		}
+		return
+	}
+
+	// Check if user is the creator of the event
+	if event.CreatedBy.String() != userID {
+		utils.ErrorResponse(w, http.StatusForbidden, "You can only delete your own events")
+		return
+	}
+
+	// Soft delete the event (sets deleted_at timestamp)
+	if result := h.db.Delete(&event); result.Error != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to delete event")
+		return
+	}
+
+	utils.MessageResponse(w, "Event deleted successfully")
 }
 
 // RegisterForEvent - Register a user for an event

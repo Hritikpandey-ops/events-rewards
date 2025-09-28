@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../core/services/api_service.dart';
 import '../core/models/event_model.dart';
-import 'dart:convert';
 
 class EventsProvider with ChangeNotifier {
   final ApiService _apiService = ApiService.instance;
@@ -43,13 +42,14 @@ class EventsProvider with ChangeNotifier {
     ).toList();
   }
 
-  // Add to EventsProvider
+  // Create a new event
   Future<bool> createEvent({
     required String title,
-    required String description, 
-    required DateTime eventDate,
+    required String description,
+    required DateTime startDate,
     required String location,
     String? category,
+    DateTime? endDate,
     int? maxParticipants,
     String? bannerImage,
   }) async {
@@ -60,32 +60,25 @@ class EventsProvider with ChangeNotifier {
       final eventData = {
         'title': title,
         'description': description,
-        'eventdate': eventDate.toUtc().toIso8601String(),
+        'eventdate': startDate.toUtc().toIso8601String(),
         'location': location,
         'category': category ?? 'general',
         'maxparticipants': maxParticipants,
         'bannerimage': bannerImage,
       };
 
-      print("DEBUG: Sending event data: ${jsonEncode(eventData)}");
-
       final result = await _apiService.createEvent(eventData);
       
-      print("DEBUG: API Response: $result");
-      
-      // Check if the response indicates success
-      if (result['success'] == true || result.containsKey('id') || result.containsKey('event')) {
-        await loadEvents();
+      if (result['success'] == true) {
+        await loadEvents(refresh: true);
         return true;
       } else {
-        // Handle the error response
-        final errorMessage = result['message'] ?? result['error'] ?? 'Failed to create event';
-        _setError(errorMessage);
+        final errorMessage = result['message'] ?? 'Failed to create event';
+        _setError(errorMessage.toString());
         return false;
       }
     } catch (e) {
-      print("DEBUG: Exception: $e");
-      _setError('Failed to create event: $e');
+      _setError('Failed to create event: ${e.toString()}');
       return false;
     } finally {
       _setLoading(false);
@@ -144,6 +137,52 @@ class EventsProvider with ChangeNotifier {
       _setLoadingMore(false);
     }
   }
+
+  List<EventModel> _myCreatedEvents = [];
+  bool _isLoadingMyEvents = false;
+  
+  // Getters
+  List<EventModel> get myCreatedEvents => _myCreatedEvents;
+  bool get isLoadingMyEvents => _isLoadingMyEvents;
+
+  // Load user's created events method
+  Future<void> loadMyEvents({bool refresh = false}) async {
+    if (refresh) {
+      _myCreatedEvents.clear();
+    }
+
+    if (_isLoadingMyEvents) return;
+
+    try {
+      _setLoadingMyEvents(true);
+      _clearError();
+
+      final response = await _apiService.getMyEvents();
+
+      if (response['success'] == true && response['data'] != null) {
+        final data = response['data'] as Map<String, dynamic>;
+        final eventsData = data['events'] as List? ?? [];
+        
+        _myCreatedEvents = eventsData
+            .map((json) => EventModel.fromJson(json as Map<String, dynamic>))
+            .toList();
+            
+        notifyListeners();
+      } else {
+        _setError(response['message'] as String? ?? 'Failed to load your events');
+      }
+    } catch (e) {
+      _setError('Failed to load your events: $e');
+    } finally {
+      _setLoadingMyEvents(false);
+    }
+  }
+
+  void _setLoadingMyEvents(bool loading) {
+    _isLoadingMyEvents = loading;
+    notifyListeners();
+  }
+
 
   // Load more events (pagination)
   Future<void> loadMoreEvents() async {
@@ -246,6 +285,71 @@ class EventsProvider with ChangeNotifier {
       }
     } catch (e) {
       _setError('Unregistration failed: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Delete event
+  Future<bool> deleteEvent(String eventId) async {
+    try {
+      _setLoading(true);
+      final result = await _apiService.deleteEvent(eventId);
+      
+      if (result['success'] == true) {
+        // Remove event from local list
+        _events.removeWhere((event) => event.id == eventId);
+        notifyListeners();
+        return true;
+      } else {
+        _setError(result['message'] ?? 'Failed to delete event');
+        return false;
+      }
+    } catch (e) {
+      _setError('Failed to delete event: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Update event
+  Future<bool> updateEvent({
+    required String eventId,
+    required String title,
+    required String description,
+    required DateTime startDate,
+    required String location,
+    String? category,
+    DateTime? endDate,
+    int? maxParticipants,
+    String? bannerImage,
+  }) async {
+    try {
+      _setLoading(true);
+      
+      final eventData = {
+        'title': title,
+        'description': description,
+        'event_date': startDate.toUtc().toIso8601String(),
+        'location': location,
+        'category': category ?? 'general',
+        'max_participants': maxParticipants,
+        'banner_image': bannerImage,
+      };
+
+      final result = await _apiService.updateEvent(eventId, eventData);
+      
+      if (result['success'] == true) {
+        await loadEvents(refresh: true);
+        return true;
+      } else {
+        _setError(result['message'] ?? 'Failed to update event');
+        return false;
+      }
+    } catch (e) {
+      _setError('Failed to update event: $e');
       return false;
     } finally {
       _setLoading(false);
