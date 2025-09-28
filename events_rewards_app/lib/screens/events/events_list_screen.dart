@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart'; 
@@ -165,6 +167,7 @@ class _EventsListScreenState extends State<EventsListScreen>
           context,
           MaterialPageRoute(builder: (context) => const ManageEventsScreen()),
         );
+        // ignore: unrelated_type_equality_checks
         if (result == true) {
           _loadEvents();
         }

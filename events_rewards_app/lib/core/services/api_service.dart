@@ -4,7 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:logging/logging.dart';
 import '../constants/api_constants.dart';
 import 'storage_service.dart';
-import 'dart:convert';
+
 
 class ApiService {
   static ApiService? _instance;
@@ -269,26 +269,20 @@ class ApiService {
   // Events endpoints
   Future<Map<String, dynamic>> createEvent(Map<String, dynamic> eventData) async {
     try {
-      print("DEBUG: Sending to ${ApiConstants.events}");
-      print("DEBUG: Data: ${jsonEncode(eventData)}");
       
       final response = await dio.post(
         ApiConstants.events, 
         data: eventData,
       );
       
-      print("DEBUG: Success Response: ${response.data}");
       return response.data;
       
     } on DioException catch (e) {
-      print("DEBUG: DioException: ${e.response?.statusCode}");
-      print("DEBUG: Response data: ${e.response?.data}");
       
       // Handle 400 Bad Request specifically
       if (e.response?.statusCode == 400) {
         final errorData = e.response?.data;
         if (errorData is Map<String, dynamic>) {
-          // Return the actual error from backend
           return {
             'success': false,
             'message': errorData['message'] ?? errorData['error'] ?? 'Validation failed',
@@ -297,19 +291,16 @@ class ApiService {
         }
       }
       
-      // For other errors, use the existing error handler
       throw _handleError(e);
     } catch (e) {
-      print("DEBUG: Generic Exception: $e");
       throw Exception("An unexpected error occurred: $e");
     }
   }
 
-    // UPDATE EVENT - PUT /events/:id
   Future<Map<String, dynamic>> updateEvent(String eventId, Map<String, dynamic> updateData) async {
     try {
       final response = await dio.put(
-        ApiConstants.eventDetails(eventId), // Use your constant with parameter
+        ApiConstants.eventDetails(eventId),
         data: updateData,
         options: Options(
           headers: {'Content-Type': 'application/json'},
@@ -317,36 +308,30 @@ class ApiService {
       );
       
       return response.data;
-    } on DioException catch (e) {
-      print('DioException in updateEvent: ${e.response?.data}');
+    } on DioException {
       rethrow;
     } catch (e) {
-      print('Exception in updateEvent: $e');
       rethrow;
     }
   }
 
-  // DELETE EVENT - DELETE /events/:id
   Future<Map<String, dynamic>> deleteEvent(String eventId) async {
     try {
       final response = await dio.delete(
-        ApiConstants.eventDetails(eventId), // Use your constant with parameter
+        ApiConstants.eventDetails(eventId), 
       );
       return response.data;
-    } on DioException catch (e) {
-      print('DioException in deleteEvent: ${e.response?.data}');
+    } on DioException {
       rethrow;
     } catch (e) {
-      print('Exception in deleteEvent: $e');
       rethrow;
     }
   }
 
-  // GET USER'S CREATED EVENTS - GET /events/user
   Future<Map<String, dynamic>> getMyEvents({int page = 1, int limit = 20}) async {
     try {
       final response = await dio.get(
-        ApiConstants.userEvents, // Use your constant
+        ApiConstants.userEvents, 
         queryParameters: {
           'page': page,
           'limit': limit,
@@ -354,29 +339,18 @@ class ApiService {
       );
       
       return response.data;
-    } on DioException catch (e) {
-      print('DioException in getMyEvents: ${e.response?.data}');
+    } on DioException {
       rethrow;
     } catch (e) {
-      print('Exception in getMyEvents: $e');
       rethrow;
     }
   }
 
 
   // Lucky draw endpoints
-  Future<Map<String, dynamic>> getLuckyDrawConfig() async {
+  Future<Map<String, dynamic>> spinLuckyDraw() async {
     try {
-      final response = await dio.get(ApiConstants.luckyDrawConfig);
-      return response.data;
-    } catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> spinWheel() async {
-    try {
-      final response = await dio.post(ApiConstants.spinWheel);
+      final response = await dio.post('/lucky-draw/spin');
       return response.data;
     } catch (e) {
       throw _handleError(e);
@@ -385,21 +359,44 @@ class ApiService {
 
   Future<Map<String, dynamic>> getUserRewards() async {
     try {
-      final response = await dio.get(ApiConstants.userRewards);
+      final response = await dio.get(ApiConstants.getUserRewards);
       return response.data;
     } catch (e) {
       throw _handleError(e);
     }
   }
 
-  Future<Map<String, dynamic>> claimReward(String rewardId) async {
+  Future<Map<String, dynamic>> getUserStats() async {
     try {
-      final response = await dio.post(ApiConstants.claimReward(rewardId));
+      final response = await dio.get(ApiConstants.getUserStats);
       return response.data;
     } catch (e) {
       throw _handleError(e);
     }
   }
+
+  // Add getRemainingSpins method
+  Future<Map<String, dynamic>> getRemainingSpins() async {
+    try {
+      final response = await dio.get(ApiConstants.getRemainingSpins);
+      return response.data;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // Fix claimReward method
+  Future<Map<String, dynamic>> claimReward(String claimCode) async {
+    try {
+      final response = await dio.post(ApiConstants.claimReward, data: {
+        'claim_code': claimCode,
+      });
+      return response.data;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
 
   // UI Config endpoint
   Future<Map<String, dynamic>> getUIConfig() async {

@@ -40,15 +40,11 @@ class ApiConstants {
   static const String newsCategories = '/news/categories';
 
   // Lucky draw endpoints
-  static const String luckyDrawConfig = '/lucky-draw/config';
-  static const String spinWheel = '/lucky-draw/spin';
-  static const String userSpins = '/lucky-draw/user-spins';
+  static const String claimReward = '/lucky-draw/claim';
+  static const String getUserRewards = '/user/rewards';
+  static const String getUserStats = '/user/stats';
+  static const String getRemainingSpins = '/lucky-draw/remaining-spins';
 
-  // Rewards endpoints
-  static const String rewards = '/rewards';
-  static const String userRewards = "/lucky-draw/my-rewards"; 
-  static String claimReward(String id) => '/rewards/$id/claim';
-  static String rewardDetails(String id) => '/rewards/$id';
 
   // Configuration endpoints
   static const String uiConfig = '/config/ui';

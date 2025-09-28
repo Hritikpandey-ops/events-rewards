@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"log"
 	"math"
 	"net/http"
 	"time"
@@ -38,110 +39,96 @@ func (h *LuckyDrawHandler) Spin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check daily spin limits (e.g., 3 spins per day)
-	today := time.Now().Truncate(24 * time.Hour)
-	var spinAttempt models.SpinAttempt
+	location, _ := time.LoadLocation("Asia/Kolkata")
+	now := time.Now().In(location)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 
+	// Check daily spin limits (3 spins per day)
+	var spinAttempt models.SpinAttempt
 	result := h.db.Where("user_id = ? AND attempt_date = ?", userID, today).First(&spinAttempt)
 
 	if result.Error == nil {
-		// User has spun today, check if they've reached the limit
+		// User has spun today - check if limit reached
 		if spinAttempt.AttemptsCount >= 3 {
-			utils.ErrorResponse(w, http.StatusTooManyRequests, "Daily spin limit reached (3 spins per day)")
+			utils.ErrorResponse(w, http.StatusTooManyRequests, "Daily spin limit reached")
 			return
 		}
-
-		// Increment attempts count
+		// Update existing record
 		spinAttempt.AttemptsCount++
-		spinAttempt.LastAttempt = time.Now()
+		spinAttempt.LastAttempt = now
 		h.db.Save(&spinAttempt)
 	} else if result.Error == gorm.ErrRecordNotFound {
-		// First spin of the day
+
 		spinAttempt = models.SpinAttempt{
+			ID:            uuid.New(),
 			UserID:        userID,
 			AttemptDate:   today,
 			AttemptsCount: 1,
-			LastAttempt:   time.Now(),
+			LastAttempt:   now,
 		}
 		h.db.Create(&spinAttempt)
 	} else {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to check spin attempts")
+		// Database error
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Database error")
 		return
 	}
 
-	// Get all active rewards
+	// Get all available rewards
 	var rewards []models.Reward
-	if h.db.Where("is_active = ? AND (total_available IS NULL OR total_available > total_claimed)", true).Find(&rewards).Error != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to fetch rewards")
-		return
-	}
+	h.db.Where("is_active = true").Find(&rewards)
 
 	if len(rewards) == 0 {
-		utils.ErrorResponse(w, http.StatusServiceUnavailable, "No rewards available")
+		utils.ErrorResponse(w, http.StatusInternalServerError, "No rewards available")
 		return
 	}
 
-	// Perform weighted random selection
+	// Select reward based on probability
 	selectedReward := h.selectRewardByProbability(rewards)
-	if selectedReward == nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to select reward")
-		return
-	}
 
-	var claimCode *string
-	var expiresAt *time.Time
-
-	// If it's not a "no reward" result, create a user reward record
 	if selectedReward.RewardType == nil || *selectedReward.RewardType != "none" {
-		// Generate claim code
-		code := h.generateClaimCode()
-		claimCode = &code
+		expiryTime := now.AddDate(0, 0, 7) // 7 days from now
+		claimCode := h.generateClaimCode()
 
-		// Set expiration (e.g., 30 days from now)
-		expiry := time.Now().AddDate(0, 0, 30)
-		expiresAt = &expiry
-
-		// Create user reward record
 		userReward := models.UserReward{
+			ID:        uuid.New(),
 			UserID:    userID,
 			RewardID:  selectedReward.ID,
-			ClaimCode: claimCode,
-			ExpiresAt: expiresAt,
+			CreatedAt: now,
+			UpdatedAt: now,
 			Status:    "pending",
+			ExpiresAt: &expiryTime,
+			ClaimCode: &claimCode,
 		}
 
-		tx := h.db.Begin()
-
-		if tx.Create(&userReward).Error != nil {
-			tx.Rollback()
-			utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to create user reward")
+		// Save to database
+		if err := h.db.Create(&userReward).Error; err != nil {
+			utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to save reward")
 			return
 		}
 
-		// Update reward claimed count
-		if tx.Model(selectedReward).Update("total_claimed", gorm.Expr("total_claimed + 1")).Error != nil {
-			tx.Rollback()
-			utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to update reward count")
-			return
+		// Load reward details for response
+		h.db.Preload("Reward").First(&userReward, userReward.ID)
+
+		// Prepare response for REAL rewards
+		response := map[string]interface{}{
+			"success":     true,
+			"reward":      selectedReward,
+			"message":     "Congratulations! You won: " + selectedReward.Name,
+			"user_reward": userReward,
+			"claim_code":  claimCode,
+			"expires_at":  &expiryTime,
 		}
 
-		tx.Commit()
-	}
-
-	response := models.SpinResponse{
-		Success:   true,
-		Reward:    selectedReward,
-		ClaimCode: claimCode,
-		ExpiresAt: expiresAt,
-	}
-
-	if selectedReward.RewardType != nil && *selectedReward.RewardType == "none" {
-		response.Message = "Better luck next time!"
+		utils.SuccessResponse(w, response)
 	} else {
-		response.Message = "Congratulations! You won: " + selectedReward.Name
-	}
+		response := map[string]interface{}{
+			"success": true,
+			"reward":  selectedReward,
+			"message": "Better luck next time!",
+		}
 
-	utils.SuccessResponse(w, response)
+		utils.SuccessResponse(w, response)
+	}
 }
 
 // selectRewardByProbability selects a reward based on probability weights
@@ -284,12 +271,24 @@ func (h *LuckyDrawHandler) ClaimReward(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update status to claimed
+	location, _ := time.LoadLocation("Asia/Kolkata")
+	claimTime := time.Now().In(location)
+
 	userReward.Status = "claimed"
+	userReward.ClaimedAt = &claimTime
+	userReward.UpdatedAt = claimTime
+
+	log.Printf("DEBUG: Setting claimed_at to: %v (IST)", claimTime)
+	log.Printf("DEBUG: Date should show as: %s", claimTime.Format("02/01/2006"))
+
 	if h.db.Save(&userReward).Error != nil {
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to claim reward")
 		return
 	}
+
+	var verifyReward models.UserReward
+	h.db.Where("id = ?", userReward.ID).First(&verifyReward)
+	log.Printf("DEBUG: Database shows claimed_at as: %v", verifyReward.ClaimedAt)
 
 	utils.SuccessResponse(w, map[string]interface{}{
 		"message": "Reward claimed successfully",
@@ -366,4 +365,55 @@ func (h *LuckyDrawHandler) GetUserStats(w http.ResponseWriter, r *http.Request) 
 	}
 
 	utils.SuccessResponse(w, stats)
+}
+
+// GetRemainingSpins - Get user's remaining daily spins
+func (h *LuckyDrawHandler) GetRemainingSpins(w http.ResponseWriter, r *http.Request) {
+	userIDStr, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	location, _ := time.LoadLocation("Asia/Kolkata")
+	now := time.Now().In(location)
+
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	var spinAttempt models.SpinAttempt
+	result := h.db.Where("user_id = ? AND attempt_date = ?", userID, today).First(&spinAttempt)
+
+	remainingSpins := 3
+	spinsUsed := 0
+	var lastSpin *time.Time
+
+	if result.Error == nil {
+		spinsUsed = spinAttempt.AttemptsCount
+		remainingSpins = 3 - spinsUsed
+		if remainingSpins < 0 {
+			remainingSpins = 0
+		}
+		if !spinAttempt.LastAttempt.IsZero() {
+			lastSpin = &spinAttempt.LastAttempt
+		}
+	} else if result.Error != gorm.ErrRecordNotFound {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to check spin attempts")
+		return
+	}
+	response := map[string]interface{}{
+		"remaining_spins":   remainingSpins,
+		"total_daily_spins": 3,
+		"spins_used_today":  spinsUsed,
+		"last_spin":         lastSpin,
+		"can_spin_today":    remainingSpins > 0,
+		"debug_today_date":  today.Format("2006-01-02"),
+	}
+
+	utils.SuccessResponse(w, response)
 }

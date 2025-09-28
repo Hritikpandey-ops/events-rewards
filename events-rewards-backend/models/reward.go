@@ -36,7 +36,9 @@ type UserReward struct {
 	ID        uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:uuid_generate_v4()"`
 	UserID    uuid.UUID  `json:"user_id" gorm:"not null"`
 	RewardID  uuid.UUID  `json:"reward_id" gorm:"not null"`
-	ClaimedAt time.Time  `json:"claimed_at" gorm:"default:CURRENT_TIMESTAMP"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	ClaimedAt *time.Time `json:"claimed_at"`
 	Status    string     `json:"status" gorm:"default:pending"`
 	ClaimCode *string    `json:"claim_code"`
 	ExpiresAt *time.Time `json:"expires_at"`

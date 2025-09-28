@@ -6,44 +6,72 @@ class RewardsProvider with ChangeNotifier {
   final ApiService _apiService = ApiService.instance;
 
   // State variables
-  List<UserRewardModel> _userRewards = [];
+  List<UserReward> _userRewards = [];
+  UserRewardStats? _userStats;
   bool _isLoading = false;
+  bool _isSpinning = false;
   bool _isRedeeming = false;
   String? _error;
+  
+  // Spin tracking from backend
+  int _spinsLeft = 3;
+  int _spinsUsed = 0;
+  DateTime? _lastSpin;
 
   // Getters
-  List<UserRewardModel> get userRewards => _userRewards;
+  List<UserReward> get userRewards => _userRewards;
+  UserRewardStats? get userStats => _userStats;
   bool get isLoading => _isLoading;
+  bool get isSpinning => _isSpinning;
   bool get isRedeeming => _isRedeeming;
   String? get error => _error;
+  
+  // Spin tracking getters
+  int get spinsLeft => _spinsLeft;
+  int get spinsUsed => _spinsUsed;
+  DateTime? get lastSpin => _lastSpin;
+  bool get canSpinToday => _spinsLeft > 0;
 
   // Filter getters
-  List<UserRewardModel> get earnedRewards => 
-      _userRewards.where((r) => r.status == 'earned').toList();
-  
-  List<UserRewardModel> get redeemedRewards => 
-      _userRewards.where((r) => r.status == 'redeemed').toList();
-  
-  List<UserRewardModel> get expiredRewards => 
-      _userRewards.where((r) => r.status == 'expired').toList();
+  List<UserReward> get pendingRewards => _userRewards.where((r) => r.isPending).toList();
+  List<UserReward> get claimedRewards => _userRewards.where((r) => r.isClaimed).toList();
+  List<UserReward> get expiredRewards => _userRewards.where((r) => r.isExpired).toList();
+
+  // Load remaining spins from backend
+  Future<void> loadRemainingSpins() async {
+    try {
+      final response = await _apiService.getRemainingSpins();
+      if (response['success'] == true) {
+        final data = response['data'];
+        _spinsLeft = data['remaining_spins'] ?? 3;
+        _spinsUsed = data['spins_used_today'] ?? 0;
+        if (data['last_spin'] != null) {
+          _lastSpin = DateTime.parse(data['last_spin']);
+        }
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error loading remaining spins: $e');
+      // Keep current values as fallback
+    }
+  }
 
   // Load user rewards from API
   Future<void> loadUserRewards() async {
     try {
       _setLoading(true);
       _clearError();
-
-      final response = await _apiService.getUserRewards();
       
+      final response = await _apiService.getUserRewards();
       if (response['success'] == true) {
         final rewardsData = response['data'] as List;
         _userRewards = rewardsData
-            .map((json) => UserRewardModel.fromJson(json as Map<String, dynamic>))
+            .map((json) => UserReward.fromJson(json as Map<String, dynamic>))
             .toList();
+        notifyListeners();
       } else {
         throw Exception(response['message'] ?? 'Failed to load rewards');
       }
-
     } catch (e) {
       _setError(e.toString());
       debugPrint('Error loading user rewards: $e');
@@ -52,32 +80,71 @@ class RewardsProvider with ChangeNotifier {
     }
   }
 
-  // Redeem/claim a reward
-  Future<bool> redeemReward(String rewardId) async {
+  // Load user stats from API
+  Future<void> loadUserStats() async {
+    try {
+      final response = await _apiService.getUserStats();
+      if (response['success'] == true) {
+        _userStats = UserRewardStats.fromJson(response['data'] as Map<String, dynamic>);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error loading user stats: $e');
+      // Keep existing stats or create default
+    }
+  }
+
+  // Perform spin
+  Future<SpinResponse?> spinWheel() async {
+    try {
+      _setSpinning(true);
+      _clearError();
+      
+      final response = await _apiService.spinLuckyDraw();
+      if (response['success'] == true) {
+        final spinResponse = SpinResponse.fromJson(response['data'] as Map<String, dynamic>);
+        
+        // Refresh data after spin
+        await Future.wait([
+          loadUserRewards(),
+          loadRemainingSpins(),
+          loadUserStats(),
+        ]);
+        
+        notifyListeners();
+        return spinResponse;
+      } else {
+        _setError(response['message'] ?? 'Failed to spin wheel');
+        return null;
+      }
+    } catch (e) {
+      _setError(e.toString());
+      debugPrint('Error spinning wheel: $e');
+      return null;
+    } finally {
+      _setSpinning(false);
+    }
+  }
+
+  // Redeem/claim a reward using claim code
+  Future<bool> redeemReward(String claimCode) async {
     try {
       _setRedeeming(true);
       _clearError();
-
-      final response = await _apiService.claimReward(rewardId);
       
+      final response = await _apiService.claimReward(claimCode);
       if (response['success'] == true) {
-        // Update the local reward status
-        final index = _userRewards.indexWhere((r) => r.id == rewardId);
-        if (index != -1) {
-          final updatedReward = _userRewards[index].copyWith(
-            status: 'redeemed',
-            redeemedAt: DateTime.now(),
-          );
-          _userRewards[index] = updatedReward;
-          notifyListeners();
-        }
-        
+        // Refresh user rewards and stats after claiming
+        await Future.wait([
+          loadUserRewards(),
+          loadUserStats(),
+        ]);
+        notifyListeners();
         return true;
       } else {
         _setError(response['message'] ?? 'Failed to redeem reward');
         return false;
       }
-
     } catch (e) {
       _setError(e.toString());
       debugPrint('Error redeeming reward: $e');
@@ -87,34 +154,23 @@ class RewardsProvider with ChangeNotifier {
     }
   }
 
-  // Refresh rewards data
-  Future<void> refreshRewards() async {
-    await loadUserRewards();
-  }
-
-  // Get specific reward by ID
-  UserRewardModel? getRewardById(String id) {
-    try {
-      return _userRewards.firstWhere((reward) => reward.id == id);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // Check if user can redeem more rewards
-  bool canRedeemMoreRewards() {
-    final availableRewards = earnedRewards.where((r) => r.canRedeem).length;
-    return availableRewards > 0;
-  }
-
-  // Get rewards count by status
-  int getRewardsCountByStatus(String status) {
-    return _userRewards.where((r) => r.status == status).length;
+  // Refresh all data
+  Future<void> refreshAllData() async {
+    await Future.wait([
+      loadUserRewards(),
+      loadRemainingSpins(),
+      loadUserStats(),
+    ]);
   }
 
   // Private helper methods
   void _setLoading(bool value) {
     _isLoading = value;
+    notifyListeners();
+  }
+
+  void _setSpinning(bool value) {
+    _isSpinning = value;
     notifyListeners();
   }
 
@@ -135,9 +191,14 @@ class RewardsProvider with ChangeNotifier {
   // Clear all data
   void clear() {
     _userRewards.clear();
+    _userStats = null;
     _isLoading = false;
+    _isSpinning = false;
     _isRedeeming = false;
     _error = null;
+    _spinsLeft = 3;
+    _spinsUsed = 0;
+    _lastSpin = null;
     notifyListeners();
   }
 }

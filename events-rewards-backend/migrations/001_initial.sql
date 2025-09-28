@@ -88,12 +88,14 @@ CREATE TABLE IF NOT EXISTS rewards (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- User rewards table (for tracking user wins)
+-- User rewards table 
 CREATE TABLE IF NOT EXISTS user_rewards (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id),
     reward_id UUID REFERENCES rewards(id),
-    claimed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),  
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),  
+    claimed_at TIMESTAMP WITH TIME ZONE,                
     status VARCHAR(50) DEFAULT 'pending',
     claim_code VARCHAR(100),
     expires_at TIMESTAMP WITH TIME ZONE
@@ -120,8 +122,13 @@ CREATE INDEX IF NOT EXISTS idx_event_registrations_event ON event_registrations(
 CREATE INDEX IF NOT EXISTS idx_news_published ON news(is_published, publish_date);
 CREATE INDEX IF NOT EXISTS idx_ui_configs_user ON ui_configs(user_id, config_type);
 CREATE INDEX IF NOT EXISTS idx_rewards_active ON rewards(is_active, probability);
+
 CREATE INDEX IF NOT EXISTS idx_user_rewards_user ON user_rewards(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_rewards_status ON user_rewards(status);
+CREATE INDEX IF NOT EXISTS idx_user_rewards_created_at ON user_rewards(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_rewards_claim_code ON user_rewards(claim_code) WHERE claim_code IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_user_rewards_expires_at ON user_rewards(expires_at) WHERE expires_at IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_spin_attempts_user_date ON spin_attempts(user_id, attempt_date);
 
 -- Insert default rewards (only if table is empty)
@@ -141,24 +148,24 @@ FROM (VALUES
 ) AS default_rewards(name, description, reward_type, value, probability, total_available)
 WHERE NOT EXISTS (SELECT 1 FROM rewards LIMIT 1);
 
--- Insert default UI configurations (only if table is empty)
+-- Insert default UI configurations (only if table is empty)  
 INSERT INTO ui_configs (user_id, config_type, config_data) VALUES
 (NULL, 'default_home', '{
-    "modules": [
-        {"type": "banner", "enabled": true, "order": 1},
-        {"type": "events", "enabled": true, "order": 2, "limit": 5},
-        {"type": "news", "enabled": true, "order": 3, "limit": 3},
-        {"type": "lucky_draw", "enabled": true, "order": 4}
-    ],
-    "theme": {
-        "primary_color": "#6366f1",
-        "secondary_color": "#f59e0b"
-    }
+  "modules": [
+    {"type": "banner", "enabled": true, "order": 1},
+    {"type": "events", "enabled": true, "order": 2, "limit": 5},
+    {"type": "news", "enabled": true, "order": 3, "limit": 3},
+    {"type": "lucky_draw", "enabled": true, "order": 4}
+  ],
+  "theme": {
+    "primary_color": "#6366f1",
+    "secondary_color": "#f59e0b"
+  }
 }'::jsonb),
 (NULL, 'default_events', '{
-    "filters": ["date", "category", "location"],
-    "sort_options": ["date", "popularity", "title"],
-    "display_mode": "grid"
+  "filters": ["date", "category", "location"],
+  "sort_options": ["date", "popularity", "title"],
+  "display_mode": "grid"
 }'::jsonb)
 ON CONFLICT DO NOTHING;
 
@@ -207,6 +214,30 @@ BEGIN
         BEFORE UPDATE ON rewards
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+
+    -- ADDED: Trigger for user_rewards table
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_user_rewards_updated_at') THEN
+        CREATE TRIGGER update_user_rewards_updated_at
+        BEFORE UPDATE ON user_rewards
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END
+$$;
+
+-- ADDED: Create constraint to ensure proper status transitions
+DO $$
+BEGIN
+    -- Add check constraint for valid statuses if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'user_rewards_status_check' 
+        AND conrelid = 'user_rewards'::regclass
+    ) THEN
+        ALTER TABLE user_rewards 
+        ADD CONSTRAINT user_rewards_status_check 
+        CHECK (status IN ('pending', 'claimed', 'expired'));
     END IF;
 END
 $$;

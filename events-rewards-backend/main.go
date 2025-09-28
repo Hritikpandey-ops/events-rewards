@@ -60,6 +60,7 @@ func main() {
 	newsHandler := handlers.NewNewsHandler(db)
 	uiConfigHandler := handlers.NewUIConfigHandler(db)
 	luckyDrawHandler := handlers.NewLuckyDrawHandler(db)
+	userHandler := handlers.NewUserHandler(db)
 
 	// Setup router
 	r := mux.NewRouter()
@@ -138,8 +139,12 @@ func main() {
 
 	// Lucky Draw routes (protected) - WITH OPTIONS SUPPORT
 	protected.HandleFunc("/lucky-draw/spin", luckyDrawHandler.Spin).Methods("POST", "OPTIONS")
-	protected.HandleFunc("/lucky-draw/my-rewards", luckyDrawHandler.GetUserRewards).Methods("GET", "OPTIONS")
-	protected.HandleFunc("/lucky-draw/claim/{rewardId}", luckyDrawHandler.ClaimReward).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/lucky-draw/remaining-spins", luckyDrawHandler.GetRemainingSpins).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/lucky-draw/claim", luckyDrawHandler.ClaimReward).Methods("POST", "OPTIONS")
+
+	// User reward routes for retrieving rewards and stats - WITH OPTIONS SUPPORT
+	protected.HandleFunc("/user/rewards", userHandler.GetUserRewards).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/user/stats", userHandler.GetUserStats).Methods("GET", "OPTIONS")
 
 	// Start server
 	log.Printf("Server starting on port %s", cfg.Port)
