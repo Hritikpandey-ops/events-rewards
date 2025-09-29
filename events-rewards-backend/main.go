@@ -116,7 +116,6 @@ func main() {
 
 	//User Routes
 	protected.HandleFunc("/user/profile", authHandler.GetUserProfile).Methods("GET", "OPTIONS")
-	protected.HandleFunc("/user/upload-selfie", authHandler.UploadSelfie).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/user/news", newsHandler.GetMyNews).Methods("GET", "OPTIONS")
 
 	// Event routes (protected) - WITH OPTIONS SUPPORT
