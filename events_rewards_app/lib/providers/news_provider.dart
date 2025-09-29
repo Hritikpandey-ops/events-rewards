@@ -1,3 +1,5 @@
+// news_provider.dart - Enhanced version for Create/Manage functionality
+
 import 'package:flutter/foundation.dart';
 import '../core/services/api_service.dart';
 import '../core/models/news_model.dart';
@@ -6,18 +8,24 @@ class NewsProvider with ChangeNotifier {
   final ApiService _apiService = ApiService.instance;
 
   // State variables
-  List<NewsModel> _news = [];
-  NewsModel? _selectedNews;
+  List<NewsModel> _allNews = [];
+  List<NewsModel> _filteredNews = [];
+  List<NewsModel> _myNews = []; 
   bool _isLoading = false;
   bool _isLoadingMore = false;
   String? _error;
   String _selectedCategory = 'all';
   String _searchQuery = '';
   int _currentPage = 1;
+  List<String> _categories = ['Business', 'Sports', 'Technology', 'Health', 'Entertainment', 'Politics', 'Education', 'Science', 'Other'];
+  NewsModel? _selectedNews;
   bool _hasMoreData = true;
 
   // Getters
-  List<NewsModel> get news => _news;
+  List<NewsModel> get allNews => _allNews;
+  List<NewsModel> get filteredNews => _filteredNews;
+  List<NewsModel> get myNews => _myNews; 
+  List<String> get categories => _categories;
   NewsModel? get selectedNews => _selectedNews;
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
@@ -26,28 +34,13 @@ class NewsProvider with ChangeNotifier {
   String get searchQuery => _searchQuery;
   bool get hasMoreData => _hasMoreData;
 
-  // Filtered news based on category
-  List<NewsModel> get filteredNews {
-    if (_selectedCategory == 'all') {
-      return _news.where((article) => 
-        article.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-        article.content.toLowerCase().contains(_searchQuery.toLowerCase())
-      ).toList();
-    }
-
-    return _news.where((article) => 
-      article.category?.toLowerCase() == _selectedCategory.toLowerCase() &&
-      (article.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-       article.content.toLowerCase().contains(_searchQuery.toLowerCase()))
-    ).toList();
-  }
-
-  // Load news
-  Future<void> loadNews({bool refresh = false}) async {
+  // Load all published news
+  Future<void> loadAllNews({bool refresh = false}) async {
     if (refresh) {
       _currentPage = 1;
       _hasMoreData = true;
-      _news.clear();
+      _allNews.clear();
+      _filteredNews.clear();
     }
 
     if (_isLoading || _isLoadingMore || !_hasMoreData) return;
@@ -69,21 +62,23 @@ class NewsProvider with ChangeNotifier {
 
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'] as Map<String, dynamic>;
-        final newsData = data['news'] as List<dynamic>? ?? [];
+        final newsData = data['news'] as List? ?? [];
+        final pagination = data['pagination'] as Map? ?? {};
 
         final newArticles = newsData
             .map((json) => NewsModel.fromJson(json as Map<String, dynamic>))
             .toList();
 
         if (_currentPage == 1) {
-          _news = newArticles;
+          _allNews = newArticles;
         } else {
-          _news.addAll(newArticles);
+          _allNews.addAll(newArticles);
         }
 
-        _hasMoreData = newArticles.length >= 20; // Assuming page size is 20
+        // Apply current filters to the new data
+        _applyFilters();
+        _hasMoreData = pagination['has_next'] as bool? ?? false;
         _currentPage++;
-
         notifyListeners();
       } else {
         _setError(response['message'] as String? ?? 'Failed to load news');
@@ -96,30 +91,302 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-  // Load more news (pagination)
-  Future<void> loadMoreNews() async {
-    if (!_hasMoreData || _isLoading || _isLoadingMore) return;
-    await loadNews();
+  // Load user's created news 
+  Future<void> loadMyNews({bool refresh = false}) async {
+    if (refresh) {
+      _myNews.clear();
+    }
+
+    try {
+      _setLoading(true);
+      _clearError();
+      
+      final response = await _apiService.getMyNews();
+      
+      if (response['success'] == true) {
+        
+        // Check if response has data
+        
+        if (response['data'] != null) {
+          // Try to cast to Map first
+          final data = response['data'] as Map<String, dynamic>;
+          if (data.containsKey('news')) {
+            final newsData = data['news'] as List? ?? [];
+            // Try to map to NewsModel
+            try {
+              _myNews = newsData
+                  .map((json) {
+                    return NewsModel.fromJson(json as Map<String, dynamic>);
+                  })
+                  .toList();
+              for (var news in _myNews) {
+                print('DEBUG: News item - ID: ${news.id}, Title: ${news.title}, Published: ${news.isPublished}');
+              }
+            } catch (e) {
+              _setError('Error parsing news data: $e');
+              return;
+            }
+          } else {
+            final newsData = response['data'] as List? ?? [];
+            _myNews = newsData
+                .map((json) => NewsModel.fromJson(json as Map<String, dynamic>))
+                .toList();
+          }
+        } else {
+          _myNews = [];
+        }
+        notifyListeners();
+        
+      } else {
+        _setError(response['message'] ?? 'Failed to load your news');
+      }
+    } finally {
+      _setLoading(false);
+    }
   }
 
-  // Load news details
-  Future<void> loadNewsDetails(String newsId) async {
+  // Load news categories (ADDED)
+  Future<void> loadCategories() async {
+    try {
+      final response = await _apiService.dio.get('/news/categories');
+      if (response.data['success'] == true) {
+        final List<dynamic> categoryData = response.data['data'] ?? [];
+        _categories = categoryData.map((item) => item.toString()).toList();
+        notifyListeners();
+      }
+    } catch (e) {
+      // Use default categories if API fails
+      _categories = ['Business', 'Sports', 'Technology', 'Health', 'Entertainment', 'Politics', 'Education', 'Science', 'Other'];
+    }
+  }
+
+  // Create news (ADDED)
+  Future<bool> createNews({
+    required String title,
+    required String content,
+    String? summary,
+    String? imageUrl,
+    String? category,
+    bool isPublished = false,
+  }) async {
     try {
       _setLoading(true);
       _clearError();
 
-      final response = await _apiService.getNewsArticle(newsId);
+      final response = await _apiService.dio.post('/news', data: {
+        'title': title,
+        'content': content,
+        'summary': summary,
+        'image_url': imageUrl,
+        'category': category,
+        'is_published': isPublished,
+      });
 
-      if (response['success'] == true && response['data'] != null) {
-        _selectedNews = NewsModel.fromJson(response['data'] as Map<String, dynamic>);
+      if (response.data['success'] == true) {
+        final newNews = NewsModel.fromJson(response.data['data'] as Map<String, dynamic>);
+        _myNews.insert(0, newNews);
+        
+        // Also add to allNews if published
+        if (isPublished) {
+          _allNews.insert(0, newNews);
+          _applyFilters();
+        }
+        
         notifyListeners();
+        return true;
       } else {
-        _setError(response['message'] as String? ?? 'Failed to load article');
+        _setError(response.data['message'] ?? 'Failed to create news');
+        return false;
       }
     } catch (e) {
-      _setError('Failed to load article: $e');
+      _setError('Failed to create news: $e');
+      return false;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  // Update news (ADDED)
+  Future<bool> updateNews({
+    required String newsId,
+    required String title,
+    required String content,
+    String? summary,
+    String? imageUrl,
+    String? category,
+    bool isPublished = false,
+  }) async {
+    try {
+      _setLoading(true);
+      _clearError();
+
+      final response = await _apiService.dio.put('/news/$newsId', data: {
+        'title': title,
+        'content': content,
+        'summary': summary,
+        'image_url': imageUrl,
+        'category': category,
+        'is_published': isPublished,
+      });
+
+      if (response.data['success'] == true) {
+        final updatedNews = NewsModel.fromJson(response.data['data'] as Map<String, dynamic>);
+        
+        // Update in myNews
+        final myNewsIndex = _myNews.indexWhere((news) => news.id == newsId);
+        if (myNewsIndex != -1) {
+          _myNews[myNewsIndex] = updatedNews;
+        }
+        
+        // Update in allNews
+        final allNewsIndex = _allNews.indexWhere((news) => news.id == newsId);
+        if (allNewsIndex != -1) {
+          _allNews[allNewsIndex] = updatedNews;
+        }
+        
+        _applyFilters();
+        notifyListeners();
+        return true;
+      } else {
+        _setError(response.data['message'] ?? 'Failed to update news');
+        return false;
+      }
+    } catch (e) {
+      _setError('Failed to update news: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Load more news for pagination
+  Future<void> loadMoreNews() async {
+    if (_isLoadingMore || !_hasMoreData) return;
+
+    try {
+      _isLoadingMore = true;
+      notifyListeners();
+
+      final response = await _apiService.dio.get('/news', queryParameters: {
+        'page': (_allNews.length ~/ 10) + 1,
+        'limit': 10,
+      });
+
+      final List<dynamic> newsData = response.data['data'] ?? [];
+      final newNews = newsData.map((json) => NewsModel.fromJson(json as Map<String, dynamic>)).toList();
+      
+      if (newNews.isEmpty) {
+        _hasMoreData = false;
+      } else {
+        _allNews.addAll(newNews);
+        _applyFilters();
+      }
+    } catch (e) {
+      _setError('Failed to load more news: ${e.toString()}');
+    } finally {
+      _isLoadingMore = false;
+      notifyListeners();
+    }
+  }
+
+  // Load specific news details
+  Future<void> loadNewsDetails(String newsId) async {
+    try {
+      _setLoading(true);
+      _clearError();
+      
+      final response = await _apiService.dio.get('/news/$newsId');
+      
+      if (response.data['success'] == true) {
+        _selectedNews = NewsModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      } else {
+        _setError(response.data['message'] ?? 'Failed to load news details');
+      }
+    } catch (e) {
+      _setError('Failed to load news details: ${e.toString()}');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Delete news
+  Future<bool> deleteNews(String newsId) async {
+    try {
+      final response = await _apiService.dio.delete('/news/$newsId');
+      
+      if (response.data['success'] == true) {
+        _myNews.removeWhere((news) => news.id == newsId);
+        _allNews.removeWhere((news) => news.id == newsId);
+        _applyFilters();
+        notifyListeners();
+        return true;
+      } else {
+        _setError(response.data['message'] ?? 'Failed to delete news');
+        return false;
+      }
+    } catch (e) {
+      _setError('Failed to delete news: ${e.toString()}');
+      return false;
+    }
+  }
+
+  // Toggle publish status
+  Future<bool> togglePublishStatus(String newsId) async {
+    try {
+      final response = await _apiService.dio.patch('/news/$newsId/toggle-publish');
+      
+      if (response.data['success'] == true) {
+        final updatedNews = NewsModel.fromJson(response.data['data'] as Map<String, dynamic>);
+        
+        // Update in myNews
+        final myNewsIndex = _myNews.indexWhere((news) => news.id == newsId);
+        if (myNewsIndex != -1) {
+          _myNews[myNewsIndex] = updatedNews;
+        }
+        
+        // Update in allNews - handle publish/unpublish logic
+        final allNewsIndex = _allNews.indexWhere((news) => news.id == newsId);
+        if (allNewsIndex != -1) {
+          if (updatedNews.isPublished) {
+            _allNews[allNewsIndex] = updatedNews;
+          } else {
+            // Remove from allNews if unpublished (since allNews only shows published)
+            _allNews.removeAt(allNewsIndex);
+          }
+        } else if (updatedNews.isPublished) {
+          // Add to allNews if newly published
+          _allNews.insert(0, updatedNews);
+        }
+        
+        _applyFilters();
+        notifyListeners();
+        return true;
+      } else {
+        _setError(response.data['message'] ?? 'Failed to update publish status');
+        return false;
+      }
+    } catch (e) {
+      _setError('Failed to update publish status: ${e.toString()}');
+      return false;
+    }
+  }
+
+
+
+  // Bookmark news
+  Future<bool> bookmarkNews(String newsId) async {
+    try {
+      final response = await _apiService.dio.post('/news/$newsId/bookmark');
+      
+      if (response.data['success'] == true) {
+        return true;
+      } else {
+        _setError(response.data['message'] ?? 'Failed to bookmark news');
+        return false;
+      }
+    } catch (e) {
+      _setError('Failed to bookmark news: ${e.toString()}');
+      return false;
     }
   }
 
@@ -127,11 +394,11 @@ class NewsProvider with ChangeNotifier {
   void setCategory(String category) {
     if (_selectedCategory != category) {
       _selectedCategory = category;
-      _news.clear();
+      _allNews.clear();
       _currentPage = 1;
       _hasMoreData = true;
       notifyListeners();
-      loadNews();
+      loadAllNews();
     }
   }
 
@@ -139,11 +406,22 @@ class NewsProvider with ChangeNotifier {
   void setSearchQuery(String query) {
     if (_searchQuery != query) {
       _searchQuery = query;
-      _news.clear();
-      _currentPage = 1;
-      _hasMoreData = true;
+      _applyFilters();
       notifyListeners();
-      loadNews();
+    }
+  }
+
+  // Apply search filter to current data
+  void _applyFilters() {
+    if (_searchQuery.isEmpty) {
+      _filteredNews = List<NewsModel>.from(_allNews);
+    } else {
+      _filteredNews = _allNews.where((article) =>
+          article.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          (article.summary?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+          article.content.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          (article.category?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false)
+      ).toList();
     }
   }
 
@@ -152,9 +430,15 @@ class NewsProvider with ChangeNotifier {
     setSearchQuery('');
   }
 
+  // Clear selected news
+  void clearSelectedNews() {
+    _selectedNews = null;
+    notifyListeners();
+  }
+
   // Refresh news
   Future<void> refresh() async {
-    await loadNews(refresh: true);
+    await loadAllNews(refresh: true);
   }
 
   // Helper methods

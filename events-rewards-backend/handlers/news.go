@@ -110,7 +110,7 @@ func (h *NewsHandler) GetNewsArticle(w http.ResponseWriter, r *http.Request) {
 // CreateNews - Create a new news article (admin only - for now, any authenticated user)
 func (h *NewsHandler) CreateNews(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	_, ok := r.Context().Value("user_id").(string)
+	userID, ok := r.Context().Value("user_id").(string)
 	if !ok {
 		utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
 		return
@@ -135,6 +135,7 @@ func (h *NewsHandler) CreateNews(w http.ResponseWriter, r *http.Request) {
 		ImageURL:    &req.ImageURL,
 		Category:    &req.Category,
 		IsPublished: req.IsPublished,
+		AuthorID:    userID,
 	}
 
 	// Set publish date if being published
@@ -162,7 +163,7 @@ func (h *NewsHandler) UpdateNews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from context
-	_, ok := r.Context().Value("user_id").(string)
+	userID, ok := r.Context().Value("user_id").(string)
 	if !ok {
 		utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
 		return
@@ -175,10 +176,10 @@ func (h *NewsHandler) UpdateNews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var news models.News
-	result := h.db.Where("id = ?", newsID).First(&news)
+	result := h.db.Where("id = ? AND author_id = ?", newsID, userID).First(&news)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
-			utils.ErrorResponse(w, http.StatusNotFound, "News article not found")
+			utils.ErrorResponse(w, http.StatusNotFound, "News article not found or you don't have permission to edit it")
 		} else {
 			utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to fetch news article")
 		}
@@ -230,17 +231,17 @@ func (h *NewsHandler) DeleteNews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from context
-	_, ok := r.Context().Value("user_id").(string)
+	userID, ok := r.Context().Value("user_id").(string)
 	if !ok {
 		utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	var news models.News
-	result := h.db.Where("id = ?", newsID).First(&news)
+	result := h.db.Where("id = ? AND author_id = ?", newsID, userID).First(&news)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
-			utils.ErrorResponse(w, http.StatusNotFound, "News article not found")
+			utils.ErrorResponse(w, http.StatusNotFound, "News article not found or you don't have permission to delete it")
 		} else {
 			utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to fetch news article")
 		}
@@ -253,6 +254,80 @@ func (h *NewsHandler) DeleteNews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.MessageResponse(w, "News article deleted successfully")
+}
+
+// GetMyNews - Get news articles created by the authenticated user
+func (h *NewsHandler) GetMyNews(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	query := h.db.Model(&models.News{}).Where("author_id = ?", userID)
+
+	// Apply filters from query parameters
+	if category := r.URL.Query().Get("category"); category != "" {
+		query = query.Where("category = ?", category)
+	}
+
+	if isPublished := r.URL.Query().Get("is_published"); isPublished != "" {
+		if published, err := strconv.ParseBool(isPublished); err == nil {
+			query = query.Where("is_published = ?", published)
+		}
+	}
+
+	// Pagination
+	page := 1
+	limit := 20
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsedPage, err := strconv.Atoi(p); err == nil && parsedPage > 0 {
+			page = parsedPage
+		}
+	}
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsedLimit, err := strconv.Atoi(l); err == nil && parsedLimit > 0 && parsedLimit <= 100 {
+			limit = parsedLimit
+		}
+	}
+
+	offset := (page - 1) * limit
+
+	var news []models.News
+	var totalCount int64
+
+	// Get total count
+	query.Count(&totalCount)
+
+	// Get news with pagination
+	result := query.
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&news)
+
+	if result.Error != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to fetch your news articles")
+		return
+	}
+
+	// Calculate pagination info
+	totalPages := int((totalCount + int64(limit) - 1) / int64(limit))
+	hasNext := page < totalPages
+	hasPrev := page > 1
+
+	utils.SuccessResponse(w, map[string]interface{}{
+		"news": news,
+		"pagination": map[string]interface{}{
+			"current_page": page,
+			"total_pages":  totalPages,
+			"total_count":  totalCount,
+			"has_next":     hasNext,
+			"has_prev":     hasPrev,
+			"limit":        limit,
+		},
+	})
 }
 
 // GetCategories - Get all news categories
@@ -293,4 +368,67 @@ func (h *NewsHandler) GetLatestNews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.SuccessResponse(w, news)
+}
+
+func (h *NewsHandler) TogglePublishStatus(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	newsID := vars["id"]
+	if newsID == "" {
+		utils.ErrorResponse(w, http.StatusBadRequest, "News ID is required")
+		return
+	}
+
+	// Get user ID from context
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	var news models.News
+	result := h.db.Where("id = ? AND author_id = ?", newsID, userID).First(&news)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			utils.ErrorResponse(w, http.StatusNotFound, "News article not found or you don't have permission to edit it")
+		} else {
+			utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to fetch news article")
+		}
+		return
+	}
+
+	// Toggle publish status
+	news.IsPublished = !news.IsPublished
+
+	// Set publish date if being published for the first time
+	if news.IsPublished && news.PublishDate == nil {
+		now := time.Now()
+		news.PublishDate = &now
+	}
+
+	if result := h.db.Save(&news); result.Error != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to update news article")
+		return
+	}
+
+	utils.SuccessResponse(w, news)
+}
+
+// BookmarkNews - Bookmark a news article (placeholder)
+func (h *NewsHandler) BookmarkNews(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	newsID := vars["id"]
+	if newsID == "" {
+		utils.ErrorResponse(w, http.StatusBadRequest, "News ID is required")
+		return
+	}
+
+	// Get user ID from context
+	//userID, ok := r.Context().Value("user_id").(string)
+	// if !ok {
+	// 	utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
+	// 	return
+	// }
+
+	// For now, just return success (implement actual bookmarking logic later)
+	utils.MessageResponse(w, "News article bookmarked successfully")
 }

@@ -266,6 +266,64 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> createNews(Map<String, dynamic> newsData) async {
+    try {
+      final response = await dio.post('/news', data: newsData);
+      return response.data;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateNews(String newsId, Map<String, dynamic> updateData) async {
+    try {
+      final response = await dio.put('/news/$newsId', data: updateData);
+      return response.data;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteNews(String newsId) async {
+    try {
+      final response = await dio.delete('/news/$newsId');
+      return response.data;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getMyNews({
+    int page = 1,
+    int limit = 20,
+    String? category,
+    bool? isPublished,
+  }) async {
+    try {
+      final queryParameters = <String, dynamic>{
+        'page': page,
+        'limit': limit,
+      };
+
+      if (category != null) queryParameters['category'] = category;
+      if (isPublished != null) queryParameters['is_published'] = isPublished.toString();
+
+      final response = await dio.get('/user/news', queryParameters: queryParameters);
+      return response.data;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getNewsCategories() async {
+    try {
+      final response = await dio.get('/news/categories');
+      return response.data;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   // Events endpoints
   Future<Map<String, dynamic>> createEvent(Map<String, dynamic> eventData) async {
     try {

@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS news (
     summary VARCHAR(500),
     image_url VARCHAR(500),
     category VARCHAR(100),
+    author_id VARCHAR(100) NOT NULL,
     is_published BOOLEAN DEFAULT FALSE,
     publish_date TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

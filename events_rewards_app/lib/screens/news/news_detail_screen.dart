@@ -11,12 +11,9 @@ import '../../providers/news_provider.dart';
 import '../../core/models/news_model.dart';
 
 class NewsDetailScreen extends StatefulWidget {
-  final String newsId;
+  final String? newsId;
 
-  const NewsDetailScreen({
-    super.key,
-    required this.newsId,
-  });
+  const NewsDetailScreen({super.key, this.newsId});
 
   @override
   State<NewsDetailScreen> createState() => _NewsDetailScreenState();
@@ -27,18 +24,22 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadNewsDetails();
+      if (widget.newsId != null) {
+        _loadNewsDetails();
+      }
     });
   }
 
   Future<void> _loadNewsDetails() async {
+    if (widget.newsId == null) return;
+    
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    await newsProvider.loadNewsDetails(widget.newsId);
+    await newsProvider.loadNewsDetails(widget.newsId!);
   }
 
   void _shareNews(NewsModel news) {
     Share.share(
-      '📰 ${news.title}\n'
+      '${news.title}\n'
       '\n${news.summary ?? news.content.substring(0, news.content.length > 200 ? 200 : news.content.length)}...'
       '\n\nRead more on Events & Rewards app!',
       subject: news.title,
@@ -76,8 +77,13 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
 
           final news = newsProvider.selectedNews;
           if (news == null) {
-            return const Scaffold(
-              body: NotFoundWidget(
+            return Scaffold(
+              appBar: AppBar(
+                title: const Text('News Article'),
+                backgroundColor: AppColors.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              body: const NotFoundWidget(
                 title: 'Article Not Found',
                 message: 'The news article you are looking for could not be found.',
               ),
@@ -284,10 +290,9 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
           ),
           const SizedBox(width: 8),
           Text(
-            news.readingTime,
+            '${news.readingTime} min read',  
             style: theme.textTheme.bodySmall?.copyWith(
-              color: isDarkMode ? AppColors.darkTextSecondaryColor : AppColors.textSecondaryColor,
-              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
             ),
           ),
         ],
@@ -374,7 +379,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
   }
 }
 
-// News List Screen (since it was referenced but not created)
+// News List Screen - Updated to use correct getters
 class NewsListScreen extends StatefulWidget {
   const NewsListScreen({super.key});
 
@@ -398,7 +403,7 @@ class _NewsListScreenState extends State<NewsListScreen>
 
   Future<void> _loadNews() async {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    await newsProvider.loadNews(refresh: true);
+    await newsProvider.loadAllNews(refresh: true);
   }
 
   @override
@@ -418,25 +423,32 @@ class _NewsListScreenState extends State<NewsListScreen>
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              // Implement search
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const NewsListScreen(),
+                ),
+              );
             },
           ),
         ],
       ),
       body: Consumer<NewsProvider>(
         builder: (context, newsProvider, child) {
-          if (newsProvider.isLoading && newsProvider.news.isEmpty) {
+          // Use allNews instead of news
+          final displayNews = newsProvider.allNews;
+
+          if (newsProvider.isLoading && displayNews.isEmpty) {
             return const LoadingWidget(message: 'Loading news...');
           }
 
-          if (newsProvider.error != null && newsProvider.news.isEmpty) {
+          if (newsProvider.error != null && displayNews.isEmpty) {
             return CustomErrorWidget(
               message: newsProvider.error!,
               onRetry: _loadNews,
             );
           }
 
-          if (newsProvider.news.isEmpty) {
+          if (displayNews.isEmpty) {
             return const EmptyStateWidget(
               title: 'No News Available',
               message: 'There are no news articles available at the moment. Check back later!',
@@ -448,9 +460,9 @@ class _NewsListScreenState extends State<NewsListScreen>
             onRefresh: _loadNews,
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: newsProvider.news.length,
+              itemCount: displayNews.length,
               itemBuilder: (context, index) {
-                final article = newsProvider.news[index];
+                final article = displayNews[index];
                 return NewsCard(
                   news: article,
                   onTap: () {
@@ -470,6 +482,7 @@ class _NewsListScreenState extends State<NewsListScreen>
   }
 }
 
+// News Card Widget - Updated to use correct properties
 class NewsCard extends StatelessWidget {
   final NewsModel news;
   final VoidCallback onTap;
@@ -600,9 +613,9 @@ class NewsCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        news.readingTime,
+                        '${news.readingTime} min read', 
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: isDarkMode ? AppColors.darkTextSecondaryColor : AppColors.textSecondaryColor,
+                          color: theme.colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
                     ],

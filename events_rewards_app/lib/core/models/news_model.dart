@@ -62,13 +62,28 @@ class NewsModel {
     return '$day/$month/$year';
   }
 
-  String get readingTime {
+  // Fixed readingTime getter - returns int for minutes
+  int get readingTime {
     final wordCount = content.split(' ').length;
     final minutes = (wordCount / 200).ceil(); // Average reading speed: 200 words/minute
-    return '${minutes}min read';
+    return minutes;
   }
 
+  // Original preview getter
   String get preview {
+    if (summary != null && summary!.isNotEmpty) {
+      return summary!;
+    }
+
+    if (content.length <= 150) {
+      return content;
+    }
+
+    return '${content.substring(0, 150)}...';
+  }
+
+  // Added contentPreview getter for compatibility
+  String get contentPreview {
     if (summary != null && summary!.isNotEmpty) {
       return summary!;
     }

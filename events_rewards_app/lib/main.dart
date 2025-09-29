@@ -26,6 +26,9 @@ import 'screens/events/events_list_screen.dart';
 import 'screens/events/create_event_screen.dart';
 import 'screens/events/event_detail_screen.dart';
 import 'screens/news/news_detail_screen.dart';
+import 'screens/news/news_list_screen.dart' as news_list;
+import 'screens/news/manage_news_screen.dart' as manage_news;
+import 'screens/news/create_news_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/lucky_draw/lucky_draw_screen.dart';
 import 'screens/lucky_draw/my_rewards_screen.dart';
@@ -95,6 +98,10 @@ class MyApp extends StatelessWidget {
               '/my-rewards': (context) => const MyRewardsScreen(),
               '/create-event': (context) => const CreateEventScreen(),
               '/manage-events': (context) => const ManageEventsScreen(),
+              '/news': (context) => const news_list.NewsListScreen(),
+              '/my-news': (context) => const manage_news.ManageNewsScreen(),
+              '/create-news': (context) => const CreateNewsScreen(),
+              '/edit-news': (context) => const CreateNewsScreen(), 
             },
             onGenerateRoute: (settings) {
               switch (settings.name) {

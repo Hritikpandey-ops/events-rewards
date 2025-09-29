@@ -16,6 +16,7 @@ import '../../core/models/news_model.dart';
 import '../events/events_list_screen.dart';
 import '../profile/profile_screen.dart';
 import '../lucky_draw/lucky_draw_screen.dart';
+import '../news/news_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
     const HomeTab(),
     const EventsListScreen(),
     const LuckyDrawScreen(),
-    const NewsTab(),
+    const NewsListScreen(),
     const ProfileScreen(),
   ];
 
@@ -56,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       homeProvider.loadUIConfig();
       eventsProvider.loadEvents();
-      newsProvider.loadNews();
+      newsProvider.loadAllNews();
     });
   }
 
@@ -503,7 +504,7 @@ class HomeTab extends StatelessWidget {
         const SizedBox(height: 16),
         if (newsProvider.isLoading)
           const Center(child: LoadingWidget())
-        else if (newsProvider.news.isEmpty)
+        else if (newsProvider.allNews.isEmpty)
           const Center(
             child: Text('No news available'),
           )
@@ -511,9 +512,9 @@ class HomeTab extends StatelessWidget {
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: math.min(newsProvider.news.length, 3),
+            itemCount: math.min(newsProvider.allNews.length, 3),
             itemBuilder: (context, index) {
-              final news = newsProvider.news[index];
+              final news = newsProvider.allNews[index];
               return _buildNewsCard(context, news);
             },
           ),
@@ -631,11 +632,11 @@ class NewsTab extends StatelessWidget {
             if (newsProvider.error != null) {
               return CustomErrorWidget(
                 message: newsProvider.error!,
-                onRetry: () => newsProvider.loadNews(),
+                onRetry: () => newsProvider.loadAllNews(),
               );
             }
 
-            if (newsProvider.news.isEmpty) {
+            if (newsProvider.allNews.isEmpty) {
               return const Center(
                 child: Text('No news available'),
               );
@@ -643,9 +644,9 @@ class NewsTab extends StatelessWidget {
 
             return ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: newsProvider.news.length,
+              itemCount: newsProvider.allNews.length,
               itemBuilder: (context, index) {
-                final news = newsProvider.news[index];
+                final news = newsProvider.allNews[index];
                 return _buildNewsItem(context, news);
               },
             );

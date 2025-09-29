@@ -80,9 +80,13 @@ func main() {
 	// Public routes (no authentication required) - NOW WITH OPTIONS SUPPORT
 	api.HandleFunc("/auth/register", authHandler.Register).Methods("POST", "OPTIONS")
 	api.HandleFunc("/auth/login", authHandler.Login).Methods("POST", "OPTIONS")
+	api.HandleFunc("/auth/upload-selfie", authHandler.UploadSelfie).Methods("POST", "OPTIONS")
+	api.HandleFunc("/auth/upload-voice", authHandler.UploadVoice).Methods("POST", "OPTIONS")
 
 	// Public news routes
 	api.HandleFunc("/news", newsHandler.GetNews).Methods("GET", "OPTIONS")
+	api.HandleFunc("/news/categories", newsHandler.GetCategories).Methods("GET", "OPTIONS")
+	api.HandleFunc("/news/latest", newsHandler.GetLatestNews).Methods("GET", "OPTIONS")
 	api.HandleFunc("/news/{id}", newsHandler.GetNewsArticle).Methods("GET", "OPTIONS")
 
 	// Public events routes
@@ -108,15 +112,12 @@ func main() {
 
 	// Auth routes (protected) - WITH OPTIONS SUPPORT
 	protected.HandleFunc("/auth/verify-identity", authHandler.VerifyIdentity).Methods("POST", "OPTIONS")
-	protected.HandleFunc("/auth/upload-selfie", authHandler.UploadSelfie).Methods("POST", "OPTIONS")
-	protected.HandleFunc("/auth/upload-voice", authHandler.UploadVoice).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/auth/profile", authHandler.GetUserProfile).Methods("GET", "OPTIONS")
 
 	//User Routes
 	protected.HandleFunc("/user/profile", authHandler.GetUserProfile).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/user/upload-selfie", authHandler.UploadSelfie).Methods("POST", "OPTIONS")
-	protected.HandleFunc("/user/upload-voice", authHandler.UploadVoice).Methods("POST", "OPTIONS")
-	protected.HandleFunc("/user/events", eventHandler.GetUserEvents).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/user/news", newsHandler.GetMyNews).Methods("GET", "OPTIONS")
 
 	// Event routes (protected) - WITH OPTIONS SUPPORT
 	protected.HandleFunc("/events", eventHandler.CreateEvent).Methods("POST", "OPTIONS")
@@ -131,6 +132,8 @@ func main() {
 	protected.HandleFunc("/news", newsHandler.CreateNews).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/news/{id}", newsHandler.UpdateNews).Methods("PUT", "OPTIONS")
 	protected.HandleFunc("/news/{id}", newsHandler.DeleteNews).Methods("DELETE", "OPTIONS")
+	protected.HandleFunc("/news/{id}/toggle-publish", newsHandler.TogglePublishStatus).Methods("PATCH", "OPTIONS")
+	protected.HandleFunc("/news/{id}/bookmark", newsHandler.BookmarkNews).Methods("POST", "OPTIONS")
 
 	// UI Config routes (protected) - WITH OPTIONS SUPPORT
 	protected.HandleFunc("/ui-config", uiConfigHandler.CreateConfig).Methods("POST", "OPTIONS")
