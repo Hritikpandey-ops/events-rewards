@@ -80,8 +80,6 @@ func main() {
 	// Public routes (no authentication required) - NOW WITH OPTIONS SUPPORT
 	api.HandleFunc("/auth/register", authHandler.Register).Methods("POST", "OPTIONS")
 	api.HandleFunc("/auth/login", authHandler.Login).Methods("POST", "OPTIONS")
-	api.HandleFunc("/auth/upload-selfie", authHandler.UploadSelfie).Methods("POST", "OPTIONS")
-	api.HandleFunc("/auth/upload-voice", authHandler.UploadVoice).Methods("POST", "OPTIONS")
 
 	// Public news routes
 	api.HandleFunc("/news", newsHandler.GetNews).Methods("GET", "OPTIONS")
@@ -113,6 +111,8 @@ func main() {
 	// Auth routes (protected) - WITH OPTIONS SUPPORT
 	protected.HandleFunc("/auth/verify-identity", authHandler.VerifyIdentity).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/auth/profile", authHandler.GetUserProfile).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/auth/upload-selfie", authHandler.UploadSelfie).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/auth/upload-voice", authHandler.UploadVoice).Methods("POST", "OPTIONS")
 
 	//User Routes
 	protected.HandleFunc("/user/profile", authHandler.GetUserProfile).Methods("GET", "OPTIONS")
@@ -145,8 +145,11 @@ func main() {
 	protected.HandleFunc("/lucky-draw/claim", luckyDrawHandler.ClaimReward).Methods("POST", "OPTIONS")
 
 	// User reward routes for retrieving rewards and stats - WITH OPTIONS SUPPORT
+
+	protected.HandleFunc("/user/events", eventHandler.GetUserEvents).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/user/rewards", userHandler.GetUserRewards).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/user/stats", userHandler.GetUserStats).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/user/profile", authHandler.UpdateProfile).Methods("PUT", "OPTIONS")
 
 	// Start server
 	log.Printf("Server starting on port %s", cfg.Port)

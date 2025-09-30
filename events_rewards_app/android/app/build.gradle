@@ -43,8 +43,8 @@ android {
         applicationId "com.example.events_rewards_app"
         minSdk 21
         targetSdk 36
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
+        versionCode 1
+        versionName "1.0"
     }
 
     buildTypes {

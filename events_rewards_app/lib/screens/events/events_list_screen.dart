@@ -91,7 +91,7 @@ class _EventsListScreenState extends State<EventsListScreen>
                 tabs: const [
                   Tab(text: 'All Events'),
                   Tab(text: 'Upcoming'),
-                  Tab(text: 'My Events'),
+                  Tab(text: 'Register Events'),
                 ],
               ),
             ),

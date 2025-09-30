@@ -53,9 +53,9 @@ dependencies:
   google_mlkit_commons: ^0.2.0
 
   # Audio Recording & Playback
-  audioplayers: ^5.2.1
-  path: ^1.8.3
-  record: ^5.0.4
+  just_audio: ^0.9.38
+  path: ^1.9.0
+  record: ^5.0.5
 
   # Location Services
   geolocator: ^10.1.0

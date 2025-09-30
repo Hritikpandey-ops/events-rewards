@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:logging/logging.dart';
 import '../core/services/auth_service.dart';
 import '../core/models/user_model.dart';
 
@@ -219,27 +220,41 @@ class AuthProvider with ChangeNotifier {
   }
 
   // Update profile
-  Future<bool> updateProfile(Map<String, dynamic> profileData) async {
+  Future<void> updateProfile() async {
     try {
-      _setLoading(true);
-      _clearError();
-
-      final result = await _authService.updateProfile(profileData);
-
+      final authService = AuthService.instance;
+      final result = await authService.getProfile();
+      
       if (result.success && result.userData != null) {
         _user = UserModel.fromJson(result.userData!);
         notifyListeners();
-        return true;
-      } else {
-        _setError(result.message);
-        return false;
       }
     } catch (e) {
-      _setError('Profile update failed: $e');
-      return false;
-    } finally {
-      _setLoading(false);
+      Logger('Error updating auth user data: $e');
     }
+  }
+
+
+  Future<void> syncUserData() async {
+    try {
+      final authService = AuthService.instance;
+      final result = await authService.getProfile();
+      
+      if (result.success && result.userData != null) {
+        _user = UserModel.fromJson(result.userData!);
+        notifyListeners();
+      }
+    } catch (e) {
+      Logger('Error syncing user data: $e');
+    }
+  }
+
+  Future<void> handleSelfieUpload() async {
+    await syncUserData();
+  }
+
+  Future<void> handleVoiceUpload() async {
+    await syncUserData();
   }
 
   // Validation methods

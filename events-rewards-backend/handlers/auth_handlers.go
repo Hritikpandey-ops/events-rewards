@@ -278,9 +278,20 @@ func (h *AuthHandler) UploadSelfie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if both files exist and auto-verify user
+	isVerified := h.attemptAutoVerification(userID)
+
+	responseMessage := "Selfie uploaded successfully"
+	if isVerified {
+		responseMessage = "Selfie uploaded successfully. Identity verification completed automatically!"
+	} else {
+		responseMessage = "Selfie uploaded successfully. Please upload voice recording to complete identity verification"
+	}
+
 	utils.SuccessResponse(w, map[string]interface{}{
-		"message":     "Selfie uploaded successfully",
+		"message":     responseMessage,
 		"selfie_path": filePath,
+		"is_verified": isVerified,
 		"next_step":   "Please upload voice recording to complete identity verification",
 	})
 }
@@ -343,10 +354,21 @@ func (h *AuthHandler) UploadVoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if both files exist and auto-verify user
+	isVerified := h.attemptAutoVerification(userID)
+
+	responseMessage := "Voice recording uploaded successfully"
+	if isVerified {
+		responseMessage = "Voice recording uploaded successfully. Identity verification completed automatically!"
+	} else {
+		responseMessage = "Voice recording uploaded successfully. Please upload selfie to complete identity verification"
+	}
+
 	utils.SuccessResponse(w, map[string]interface{}{
-		"message":    "Voice recording uploaded successfully",
-		"voice_path": filePath,
-		"next_step":  "Identity verification complete. You can now access all features",
+		"message":     responseMessage,
+		"voice_path":  filePath,
+		"is_verified": isVerified,
+		"next_step":   "Identity verification complete. You can now access all features",
 	})
 }
 
@@ -377,6 +399,21 @@ func (h *AuthHandler) VerifyIdentity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if already verified
+	if user.IsVerified {
+		utils.SuccessResponse(w, map[string]interface{}{
+			"message": "User is already verified",
+			"user": map[string]interface{}{
+				"id":          user.ID,
+				"email":       user.Email,
+				"first_name":  user.FirstName,
+				"last_name":   user.LastName,
+				"is_verified": true,
+			},
+		})
+		return
+	}
+
 	// Mark user as verified
 	if err := h.db.Model(&user).Updates(map[string]interface{}{
 		"is_verified": true,
@@ -402,73 +439,72 @@ func (h *AuthHandler) VerifyIdentity(w http.ResponseWriter, r *http.Request) {
 
 // GetUserProfile - Get user profile with file URLs
 func (h *AuthHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
-    userIDStr, ok := r.Context().Value("user_id").(string)
-    if !ok {
-        utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
-        return
-    }
+	userIDStr, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
 
-    userID, err := uuid.Parse(userIDStr)
-    if err != nil {
-        utils.ErrorResponse(w, http.StatusBadRequest, "Invalid user ID")
-        return
-    }
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
 
-    var user models.User
-    if err := h.db.Where("id = ?", userID).First(&user).Error; err != nil {
-        utils.ErrorResponse(w, http.StatusNotFound, "User profile not found")
-        return
-    }
+	var user models.User
+	if err := h.db.Where("id = ?", userID).First(&user).Error; err != nil {
+		utils.ErrorResponse(w, http.StatusNotFound, "User profile not found")
+		return
+	}
 
-    // Generate presigned URLs for files
-    var selfieURL, voiceURL *string
-    if user.SelfiePath != nil && *user.SelfiePath != "" {
-        if url, err := h.minioService.GetFileURL(*user.SelfiePath); err == nil {
-            selfieURL = &url
-        }
-    }
-    if user.VoicePath != nil && *user.VoicePath != "" {
-        if url, err := h.minioService.GetFileURL(*user.VoicePath); err == nil {
-            voiceURL = &url
-        }
-    }
+	// Generate presigned URLs for files
+	var selfieURL, voiceURL *string
+	if user.SelfiePath != nil && *user.SelfiePath != "" {
+		if url, err := h.minioService.GetFileURL(*user.SelfiePath); err == nil {
+			selfieURL = &url
+		}
+	}
+	if user.VoicePath != nil && *user.VoicePath != "" {
+		if url, err := h.minioService.GetFileURL(*user.VoicePath); err == nil {
+			voiceURL = &url
+		}
+	}
 
-    utils.SuccessResponse(w, map[string]interface{}{
-        "user": map[string]interface{}{
-            "id": user.ID,
-            "email": user.Email,
-            "first_name": user.FirstName,
-            "last_name": user.LastName,
-            "phone": user.Phone,
-            "is_verified": user.IsVerified,
-            "is_active": user.IsActive,
-            "selfie_url": selfieURL,
-            "voice_url": voiceURL,
-            "has_selfie": user.SelfiePath != nil && *user.SelfiePath != "",
-            "has_voice": user.VoicePath != nil && *user.VoicePath != "",
-            "verification_status": func() string {
-                if user.IsVerified {
-                    return "verified"
-                }
-                hasSelfie := user.SelfiePath != nil && *user.SelfiePath != ""
-                hasVoice := user.VoicePath != nil && *user.VoicePath != ""
-                if hasSelfie && hasVoice {
-                    return "pending_review"
-                } else if hasSelfie {
-                    return "voice_required"
-                } else if hasVoice {
-                    return "selfie_required"
-                }
-                return "pending"
-            }(),
-            "device_info": user.DeviceInfo,
-            "location": user.Location,
-            "created_at": user.CreatedAt,
-            "updated_at": user.UpdatedAt,
-        },
-    })
+	utils.SuccessResponse(w, map[string]interface{}{
+		"user": map[string]interface{}{
+			"id":          user.ID,
+			"email":       user.Email,
+			"first_name":  user.FirstName,
+			"last_name":   user.LastName,
+			"phone":       user.Phone,
+			"is_verified": user.IsVerified,
+			"is_active":   user.IsActive,
+			"selfie_url":  selfieURL,
+			"voice_url":   voiceURL,
+			"has_selfie":  user.SelfiePath != nil && *user.SelfiePath != "",
+			"has_voice":   user.VoicePath != nil && *user.VoicePath != "",
+			"verification_status": func() string {
+				if user.IsVerified {
+					return "verified"
+				}
+				hasSelfie := user.SelfiePath != nil && *user.SelfiePath != ""
+				hasVoice := user.VoicePath != nil && *user.VoicePath != ""
+				if hasSelfie && hasVoice {
+					return "pending_review"
+				} else if hasSelfie {
+					return "voice_required"
+				} else if hasVoice {
+					return "selfie_required"
+				}
+				return "pending"
+			}(),
+			"device_info": user.DeviceInfo,
+			"location":    user.Location,
+			"created_at":  user.CreatedAt,
+			"updated_at":  user.UpdatedAt,
+		},
+	})
 }
-
 
 // UpdateProfile - Update user profile information
 func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
@@ -701,4 +737,30 @@ func getVerificationStatus(isVerified bool, selfiePath, voicePath *string) strin
 		return "selfie_required"
 	}
 	return "pending"
+}
+
+// attemptAutoVerification checks if user has both files and verifies automatically
+// Returns true if user was verified, false otherwise
+func (h *AuthHandler) attemptAutoVerification(userID uuid.UUID) bool {
+	var user models.User
+	if err := h.db.Where("id = ?", userID).First(&user).Error; err != nil {
+		return false
+	}
+
+	// Check if both selfie and voice exist and user is not already verified
+	hasSelfie := user.SelfiePath != nil && *user.SelfiePath != ""
+	hasVoice := user.VoicePath != nil && *user.VoicePath != ""
+
+	if hasSelfie && hasVoice && !user.IsVerified {
+		// Auto-verify the user
+		if err := h.db.Model(&user).Updates(map[string]interface{}{
+			"is_verified": true,
+			"updated_at":  time.Now(),
+		}).Error; err != nil {
+			return false
+		}
+		return true
+	}
+
+	return user.IsVerified
 }

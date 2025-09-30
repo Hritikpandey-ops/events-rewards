@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:dio/dio.dart'; // Add this import for MultipartFile
-import 'package:http_parser/http_parser.dart'; // Add this import for MediaType
+import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart'; 
 import '../core/services/auth_service.dart';
 import '../core/models/user_model.dart';
 
@@ -13,7 +13,7 @@ class ProfileProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _isSelfieUploading = false;
   bool _isVoiceUploading = false;
-  bool _isVerifying = false;
+  final bool _isVerifying = false;
   String? _error;
 
   // Getters
@@ -23,83 +23,97 @@ class ProfileProvider with ChangeNotifier {
   bool get isVoiceUploading => _isVoiceUploading;
   bool get isVerifying => _isVerifying;
   String? get error => _error;
+  String? get errorMessage => _error; // Alias for consistency
 
   // Verification status getters
-bool get hasSelfie {
-  final result = user?.hasSelfie ?? false;
-  return result;
-}
+  bool get hasSelfie {
+    return user?.hasSelfie == true;
+  }
 
-bool get hasVoice {
-  final result = user?.hasVoice ?? false;
-  return result;
-}
+  bool get hasVoice {
+    return user?.hasVoice == true;
+  }
 
-bool get isVerified {
-  final result = user?.isVerified ?? false;
-  return result;
-}
+  bool get isVerified {
+    return user?.isVerified == true || 
+           user?.verificationStatus == 'verified';
+  }
 
-bool get canVerifyIdentity {
-  final result = hasSelfie && hasVoice && !isVerified;
-  return result;
-}
-
+  bool get canVerifyIdentity {
+    return hasSelfie && hasVoice && !isVerified;
+  }
 
   // Verification progress (0.0 to 1.0)
   double get verificationProgress {
-    if (_user == null) return 0.0;
-    double progress = 0.0;
-    if (hasSelfie) progress += 0.5;
-    if (hasVoice) progress += 0.3;
-    if (isVerified) progress = 1.0;
-    return progress;
+    int completedSteps = 0;
+    if (hasSelfie) completedSteps++;
+    if (hasVoice) completedSteps++;
+    if (isVerified) completedSteps++;
+    
+    return completedSteps / 3.0;
   }
 
-  // Load profile data
-Future<void> loadProfile() async {
-  try {
-    _setLoading(true);
-    _clearError();
-    
-    
-    // Use the correct method that returns AuthResult
-    final result = await _authService.getProfile();
-    
-    if (result.success && result.userData != null) {
-      _user = UserModel.fromJson(result.userData!);
-      notifyListeners();  
-    } else {
-      _setError(result.message);
+  // Load profile data - FIXED VERSION
+  Future<void> loadProfile() async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      final result = await _authService.getProfile();
+      
+      if (result.success && result.userData != null) {
+        try {
+          // Extract the nested user data from the response
+          final userDataMap = Map<String, dynamic>.from(result.userData!);
+          final userData = userDataMap['user'] != null 
+              ? Map<String, dynamic>.from(userDataMap['user']!)
+              : <String, dynamic>{};
+          
+          _user = UserModel.fromJson(userData);
+          _error = null;
+        } catch (e) {
+          _error = 'Error parsing profile data: ${e.toString()}';
+          print('Error in loadProfile parsing: $e');
+        }
+      } else {
+        _error = result.message;
+      }
+    } catch (e) {
+      _error = e.toString().replaceAll('Exception: ', '');
+      print('Error loading profile: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-  } catch (e) {
-    _setError('Failed to load profile: $e');
-  } finally {
-    _setLoading(false);
   }
-}
 
-
-  // Update profile
+  // Update profile 
   Future<bool> updateProfile(Map<String, dynamic> profileData) async {
     try {
-      _setLoading(true);
-      _clearError();
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
 
       final result = await _authService.updateProfile(profileData);
-      if (result.success && result.userData != null) {
-        _user = UserModel.fromJson(result.userData!);
-        notifyListeners();
+
+      if (result.success) {
+        _error = null;
+        
+        // Refresh the profile data to get updated information
+        await loadProfile();
+        
         return true;
       } else {
-        _setError(result.message);
+        _error = result.message;
         return false;
       }
     } catch (e) {
-      _setError('Failed to update profile: $e');
+      _error = e.toString().replaceAll('Exception: ', '');
       return false;
     } finally {
-      _setLoading(false);
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -195,7 +209,7 @@ Future<void> loadProfile() async {
       final result = await _authService.uploadVoiceMultipart(multipartFile);
       
       if (result.success) {
-        await loadProfile(); // Refresh profile data
+        await loadProfile();
         return true;
       } else {
         _setError(result.message);
@@ -211,29 +225,27 @@ Future<void> loadProfile() async {
 
   // Verify identity
   Future<bool> verifyIdentity() async {
-    if (!canVerifyIdentity) {
-      _setError('Please upload both selfie and voice recording first');
-      return false;
-    }
-
     try {
-      _setVerifying(true);
-      _clearError();
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
 
       final result = await _authService.verifyIdentity();
+
       if (result.success) {
-        // Refresh profile to get updated verification status
+        // Reload profile to get updated verification status
         await loadProfile();
         return true;
       } else {
-        _setError(result.message);
+        _error = result.message;
         return false;
       }
     } catch (e) {
-      _setError('Failed to verify identity: $e');
+      _error = e.toString().replaceAll('Exception: ', '');
       return false;
     } finally {
-      _setVerifying(false);
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -272,11 +284,6 @@ Future<void> loadProfile() async {
   }
 
   // Helper methods
-  void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
-  }
-
   void _setSelfieUploading(bool uploading) {
     _isSelfieUploading = uploading;
     notifyListeners();
@@ -287,10 +294,10 @@ Future<void> loadProfile() async {
     notifyListeners();
   }
 
-  void _setVerifying(bool verifying) {
-    _isVerifying = verifying;
-    notifyListeners();
-  }
+  // void _setVerifying(bool verifying) {
+  //   _isVerifying = verifying;
+  //   notifyListeners();
+  // }
 
   void _setError(String error) {
     _error = error;

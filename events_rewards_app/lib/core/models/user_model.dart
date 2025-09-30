@@ -27,28 +27,25 @@ class UserModel {
     this.verificationCompletedAt,
   });
 
-  // Factory constructor from JSON
+// Factory constructor from JSON
 factory UserModel.fromJson(Map<String, dynamic> json) {
-  // DEBUG: Print the raw JSON response
-  
   return UserModel(
-    id: json['id'] as String,
-    email: json['email'] as String,
-    firstName: json['first_name'] as String?,
-    lastName: json['last_name'] as String?,
-    phone: json['phone'] as String?,
-    selfieUrl: json['selfie_url'] as String?,
+    id: json['id']?.toString() ?? '',
+    email: json['email']?.toString() ?? '',
+    firstName: json['first_name']?.toString(),
+    lastName: json['last_name']?.toString(),
+    phone: json['phone']?.toString(),
+    selfieUrl: json['selfie_url']?.toString(),
     isVerified: json['is_verified'] as bool? ?? false,
-    hasSelfie: json['has_selfie'] as bool? ?? false,  
-    hasVoice: json['has_voice'] as bool? ?? false,    
-    verificationStatus: json['verification_status'] as String? ?? 'pending',
+    hasSelfie: json['has_selfie'] as bool? ?? false,
+    hasVoice: json['has_voice'] as bool? ?? false,
+    verificationStatus: json['verification_status']?.toString() ?? 'pending',
     createdAt: DateTime.parse(json['created_at'] as String),
     verificationCompletedAt: json['verification_completed_at'] != null
         ? DateTime.parse(json['verification_completed_at'] as String)
         : null,
   );
 }
-
 
   // Convert to JSON
   Map<String, dynamic> toJson() {

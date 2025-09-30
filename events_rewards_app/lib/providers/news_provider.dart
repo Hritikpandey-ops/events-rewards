@@ -1,6 +1,7 @@
 // news_provider.dart - Enhanced version for Create/Manage functionality
 
 import 'package:flutter/foundation.dart';
+import 'package:logging/logging.dart';
 import '../core/services/api_service.dart';
 import '../core/models/news_model.dart';
 
@@ -120,7 +121,7 @@ class NewsProvider with ChangeNotifier {
                   })
                   .toList();
               for (var news in _myNews) {
-                print('DEBUG: News item - ID: ${news.id}, Title: ${news.title}, Published: ${news.isPublished}');
+                Logger('DEBUG: News item - ID: ${news.id}, Title: ${news.title}, Published: ${news.isPublished}');
               }
             } catch (e) {
               _setError('Error parsing news data: $e');

@@ -11,6 +11,7 @@ import '../../providers/profile_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../auth/selfie_capture_screen.dart';
 import '../auth/voice_recording_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -51,14 +52,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         child: Consumer2<AuthProvider, ProfileProvider>(
           builder: (context, authProvider, profileProvider, child) {
            final user = profileProvider.user ?? authProvider.user;
-
-          print("   Profile Screen Build:");
-          print("   AuthProvider.user?.hasSelfie: ${authProvider.user?.hasSelfie}");
-          print("   AuthProvider.user?.hasVoice: ${authProvider.user?.hasVoice}");
-          print("   ProfileProvider.user?.hasSelfie: ${profileProvider.user?.hasSelfie}");
-          print("   ProfileProvider.user?.hasVoice: ${profileProvider.user?.hasVoice}");
-          print("   ProfileProvider.canVerifyIdentity: ${profileProvider.canVerifyIdentity}");
-
 
             if (profileProvider.isLoading && user == null) {
               return const LoadingWidget(message: 'Loading profile...');
@@ -180,120 +173,144 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildVerificationStatus(user, ProfileProvider profileProvider) {
-    final isVerified = profileProvider.isVerified;
-    final progress = profileProvider.verificationProgress;
+Widget _buildVerificationStatus(user, ProfileProvider profileProvider) {
+  // Use the actual user data for verification status
+  final isVerified = user?.isVerified == true || 
+                    user?.verificationStatus == 'verified';
+  final hasSelfie = user?.hasSelfie == true;
+  final hasVoice = user?.hasVoice == true;
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  isVerified ? Icons.verified_user : Icons.pending,
-                  color: isVerified ? AppColors.successColor : AppColors.warningColor,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Identity Verification',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        isVerified 
-                            ? 'Verified • Full access enabled'
-                            : 'Pending • Complete to unlock all features',
-                        style: TextStyle(
-                          color: isVerified ? AppColors.successColor : AppColors.warningColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+  double progress = 0.0;
+  if (hasSelfie) progress += 0.33;
+  if (hasVoice) progress += 0.33;
+  if (isVerified) progress += 0.34;
 
-            if (!isVerified) ...[
-              const SizedBox(height: 16),
-
-              // Progress Bar
-              LinearProgressIndicator(
-                value: progress,
-                backgroundColor: AppColors.dividerColor,
-                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryColor),
+  return Card(
+    elevation: 2,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isVerified ? Icons.verified_user : Icons.pending,
+                color: isVerified ? AppColors.successColor : AppColors.warningColor,
+                size: 24,
               ),
-              const SizedBox(height: 8),
-              Text(
-                '${(progress * 100).round()}% Complete',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondaryColor,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Verification Steps
-              _buildVerificationStep(
-                icon: Icons.camera_alt,
-                title: 'Upload Selfie',
-                completed: profileProvider.hasSelfie,
-                onTap: profileProvider.hasSelfie ? null : () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const SelfieCaptureScreen(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Identity Verification',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildVerificationStep(
-                icon: Icons.mic,
-                title: 'Record Voice',
-                completed: profileProvider.hasVoice,
-                onTap: profileProvider.hasVoice ? null : () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const VoiceRecordingScreen(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildVerificationStep(
-                icon: Icons.verified,
-                title: 'Complete Verification',
-                completed: isVerified,
-                onTap: profileProvider.canVerifyIdentity ? () async {
-                  final success = await profileProvider.verifyIdentity();
-                  if (success && mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Identity verified successfully!'),
-                        backgroundColor: AppColors.successColor,
+                    Text(
+                      isVerified 
+                          ? 'Verified • Full access enabled'
+                          : 'Pending • Complete to unlock all features',
+                      style: TextStyle(
+                        color: isVerified ? AppColors.successColor : AppColors.warningColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
-                    );
-                  }
-                } : null,
+                    ),
+                  ],
+                ),
               ),
             ],
+          ),
+
+          if (!isVerified) ...[
+            const SizedBox(height: 16),
+
+            // Progress Bar
+            LinearProgressIndicator(
+              value: progress,
+              backgroundColor: AppColors.dividerColor,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryColor),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${(progress * 100).round()}% Complete',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondaryColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Verification Steps - Use actual user data
+            _buildVerificationStep(
+              icon: Icons.camera_alt,
+              title: 'Upload Selfie',
+              completed: hasSelfie,
+              onTap: hasSelfie ? null : () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SelfieCaptureScreen(),
+                  ),
+                ).then((_) async {
+                  // Refresh profile after returning from selfie capture
+                  await profileProvider.loadProfile();
+                  // Also sync auth provider
+                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                  await authProvider.syncUserData();
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildVerificationStep(
+              icon: Icons.mic,
+              title: 'Record Voice',
+              completed: hasVoice,
+              onTap: hasVoice ? null : () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const VoiceRecordingScreen(),
+                  ),
+                ).then((_) async {
+                  // Refresh profile after returning from voice recording
+                  await profileProvider.loadProfile();
+                  // Also sync auth provider
+                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                  await authProvider.syncUserData();
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildVerificationStep(
+              icon: Icons.verified,
+              title: 'Complete Verification',
+              completed: isVerified,
+              onTap: (hasSelfie && hasVoice && !isVerified) ? () async {
+                final success = await profileProvider.verifyIdentity();
+                if (success && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Identity verified successfully!'),
+                      backgroundColor: AppColors.successColor,
+                    ),
+                  );
+                  // Refresh data
+                  await profileProvider.loadProfile();
+                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                  await authProvider.syncUserData();
+                }
+              } : null,
+            ),
           ],
-        ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildVerificationStep({
     required IconData icon,
@@ -381,7 +398,14 @@ class _ProfileScreenState extends State<ProfileScreen>
             SecondaryButton(
               text: 'Edit Profile',
               onPressed: () {
-                // Navigate to edit profile screen
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const EditProfileScreen(),
+                  ),
+                ).then((_) {
+                  // Refresh profile data when returning from edit screen
+                  _loadProfile();
+                });
               },
               icon: Icons.edit,
               width: double.infinity,
