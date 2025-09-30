@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 // Core Services
 import 'core/services/storage_service.dart';
 import 'core/services/api_service.dart';
-import 'core/services/notification_service.dart';
 
 // Providers
 import 'providers/auth_provider.dart';
@@ -54,8 +53,6 @@ Future<void> _initializeServices() async {
     // Initialize API service
     await ApiService.init();
     
-    // Initialize notification service
-    await NotificationService.initialize();
     
   } catch (e) {
     debugPrint('Error initializing services: $e');

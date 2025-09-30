@@ -24,11 +24,12 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.example.events_rewards_app"
-    compileSdk 36
-
+    compileSdk 36  // Increased to 36 for plugin requirements
+    ndkVersion "27.0.12077973" 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
     }
 
     kotlinOptions {
@@ -41,10 +42,11 @@ android {
 
     defaultConfig {
         applicationId "com.example.events_rewards_app"
-        minSdk 21
-        targetSdk 36
-        versionCode 1
-        versionName "1.0"
+        minSdkVersion flutter.minSdkVersion
+        targetSdk 36  // Increased to 36 for plugin requirements
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+        multiDexEnabled true
     }
 
     buildTypes {
@@ -59,5 +61,6 @@ flutter {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.1.0"
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 }
