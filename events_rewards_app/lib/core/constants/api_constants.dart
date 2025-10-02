@@ -1,6 +1,6 @@
 class ApiConstants {
-  // Base URL - Update this to match your GoLang backend
-  static const String baseUrl = 'http://localhost:8080/api/v1'; 
+  //Base URL
+  static const String baseUrl = 'http://192.168.0.100:8080/api/v1'; 
 
   // Timeout constants
   static const int connectionTimeout = 30; // seconds

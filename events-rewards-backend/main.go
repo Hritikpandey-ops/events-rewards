@@ -155,7 +155,7 @@ func main() {
 	log.Printf("Server starting on port %s", cfg.Port)
 	log.Printf("MinIO Console available at: http://localhost:9001")
 	log.Printf("pgAdmin available at: http://localhost:5051")
-	log.Fatal(http.ListenAndServe(":"+cfg.Port, r))
+	log.Fatal(http.ListenAndServe("0.0.0.0:"+cfg.Port, r))
 }
 
 // performAutoMigration runs standard GORM auto migration
