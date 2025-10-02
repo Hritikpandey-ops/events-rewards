@@ -33,7 +33,7 @@ type RegisterRequest struct {
 	LastName   string                 `json:"last_name" validate:"required,min=2"`
 	Phone      string                 `json:"phone"`
 	DeviceInfo map[string]interface{} `json:"device_info"`
-	Location   map[string]interface{} `json:"location"`
+	Location   map[string]interface{} `json:"location_info"`
 	DeviceID   string                 `json:"device_id"`
 }
 
@@ -73,7 +73,7 @@ func NewAuthHandler(db *gorm.DB, minioService *services.MinIOService) *AuthHandl
 	}
 }
 
-// Register - User registration with comprehensive validation
+// Register
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -113,7 +113,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert device info and location to JSONB
+	// Convert device info and location to JSONB with proper handling
 	var deviceInfo models.JSONB
 	var location models.JSONB
 
@@ -121,12 +121,18 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		deviceInfo = models.JSONB(req.DeviceInfo)
 	} else {
 		deviceInfo = make(models.JSONB)
+		// Add basic device info if not provided
+		deviceInfo["collected_at"] = time.Now().Format(time.RFC3339)
+		deviceInfo["source"] = "registration"
 	}
 
 	if req.Location != nil {
 		location = models.JSONB(req.Location)
 	} else {
 		location = make(models.JSONB)
+		// Add basic location info if not provided
+		location["collected_at"] = time.Now().Format(time.RFC3339)
+		location["source"] = "registration"
 	}
 
 	// Create user
@@ -168,7 +174,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Login - User login with enhanced security
+// Login
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -196,11 +202,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update device ID and last login if provided
+	updates := map[string]interface{}{
+		"updated_at": time.Now(),
+	}
+
 	if req.DeviceID != "" {
-		deviceID := req.DeviceID
-		user.DeviceID = &deviceID
-		user.UpdatedAt = time.Now()
-		h.db.Save(&user)
+		updates["device_id"] = req.DeviceID
+	}
+
+	if err := h.db.Model(&user).Updates(updates).Error; err != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to update user information")
+		return
 	}
 
 	// Generate JWT token
@@ -217,6 +229,58 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		"user":    user,
 		"token":   token,
 		"message": "Login successful",
+	})
+}
+
+// Logout Method
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context
+	userIDStr, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	// Get token from header for logging purposes
+	authHeader := r.Header.Get("Authorization")
+	var tokenString string
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+	}
+
+	// If you want to parse the token for logging or other purposes
+	if tokenString != "" {
+		claims, err := h.authService.ParseToken(tokenString)
+		if err == nil {
+			// Log token expiration info
+			if claims.ExpiresAt != nil {
+				fmt.Printf("User %s logged out. Token expires at: %s\n",
+					userID, claims.ExpiresAt.Time.Format(time.RFC3339))
+			}
+		}
+	}
+
+	// Update user's last activity timestamp
+	if err := h.db.Model(&models.User{}).Where("id = ?", userID).Update("updated_at", time.Now()).Error; err != nil {
+		// Log but don't fail the request
+		fmt.Printf("Note: Could not update user activity during logout: %v\n", err)
+	}
+
+	// Log the logout event
+	fmt.Printf("Security: User %s logged out at %s\n", userID, time.Now().Format(time.RFC3339))
+
+	utils.SuccessResponse(w, map[string]interface{}{
+		"success": true,
+		"message": "Logout successful",
+		"data": map[string]interface{}{
+			"logout_time": time.Now().Format(time.RFC3339),
+		},
 	})
 }
 
@@ -763,4 +827,87 @@ func (h *AuthHandler) attemptAutoVerification(userID uuid.UUID) bool {
 	}
 
 	return user.IsVerified
+}
+
+func (h *AuthHandler) UpdateDeviceInfo(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context
+	userIDStr, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	var deviceInfo map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&deviceInfo); err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Add timestamp
+	if deviceInfo == nil {
+		deviceInfo = make(map[string]interface{})
+	}
+	deviceInfo["updated_at"] = time.Now().Format(time.RFC3339)
+	deviceInfo["source"] = "login"
+
+	// Update user device info
+	if err := h.db.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+		"device_info": models.JSONB(deviceInfo),
+		"updated_at":  time.Now(),
+	}).Error; err != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to update device information")
+		return
+	}
+
+	utils.SuccessResponse(w, map[string]interface{}{
+		"message": "Device information updated successfully",
+	})
+}
+
+// UpdateLocation - Update user location information
+func (h *AuthHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context
+	userIDStr, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	var locationInfo map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&locationInfo); err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Add timestamp
+	if locationInfo == nil {
+		locationInfo = make(map[string]interface{})
+	}
+	locationInfo["updated_at"] = time.Now().Format(time.RFC3339)
+	locationInfo["source"] = "login"
+
+	// Update user location
+	if err := h.db.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+		"location":   models.JSONB(locationInfo),
+		"updated_at": time.Now(),
+	}).Error; err != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Failed to update location information")
+		return
+	}
+
+	utils.SuccessResponse(w, map[string]interface{}{
+		"message": "Location information updated successfully",
+	})
 }

@@ -147,3 +147,19 @@ func (s *AuthService) VerifyIdentity(userID string, selfiePath, voicePath string
 
 	return s.db.Save(&user).Error
 }
+
+// ParseToken parses a JWT token without verification to extract claims
+func (s *AuthService) ParseToken(tokenString string) (*Claims, error) {
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	
+	token, _, err := parser.ParseUnverified(tokenString, &Claims{})
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*Claims); ok {
+		return claims, nil
+	}
+
+	return nil, errors.New("invalid token claims")
+}

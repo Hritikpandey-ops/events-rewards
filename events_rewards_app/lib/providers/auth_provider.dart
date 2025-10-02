@@ -76,7 +76,6 @@ class AuthProvider with ChangeNotifier {
       _setLoading(false);
     }
   }
-
   // Register user
   Future<bool> register({
     required String email,
@@ -127,6 +126,7 @@ class AuthProvider with ChangeNotifier {
       _clearError();
 
       notifyListeners();
+      
     } catch (e) {
       _setError('Logout failed: $e');
     } finally {

@@ -113,6 +113,7 @@ func main() {
 	protected.HandleFunc("/auth/profile", authHandler.GetUserProfile).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/auth/upload-selfie", authHandler.UploadSelfie).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/auth/upload-voice", authHandler.UploadVoice).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/auth/logout", authHandler.Logout).Methods("POST", "OPTIONS")
 
 	//User Routes
 	protected.HandleFunc("/user/profile", authHandler.GetUserProfile).Methods("GET", "OPTIONS")
@@ -150,6 +151,8 @@ func main() {
 	protected.HandleFunc("/user/rewards", userHandler.GetUserRewards).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/user/stats", userHandler.GetUserStats).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/user/profile", authHandler.UpdateProfile).Methods("PUT", "OPTIONS")
+	protected.HandleFunc("/user/device-info", authHandler.UpdateDeviceInfo).Methods("PUT", "OPTIONS")
+	protected.HandleFunc("/user/location", authHandler.UpdateLocation).Methods("PUT", "OPTIONS")
 
 	// Start server
 	log.Printf("Server starting on port %s", cfg.Port)
@@ -169,6 +172,7 @@ func performAutoMigration(db *gorm.DB) {
 		&models.Reward{},
 		&models.UserReward{},
 		&models.SpinAttempt{},
+		&models.TokenBlacklist{},
 	)
 
 	if err != nil {
@@ -189,6 +193,7 @@ func performSafeMigration(db *gorm.DB) {
 		&models.Reward{},
 		&models.UserReward{},
 		&models.SpinAttempt{},
+		&models.TokenBlacklist{},
 	}
 
 	for _, model := range models {

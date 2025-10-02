@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import '../constants/api_constants.dart';
 import 'api_service.dart';
 import 'storage_service.dart';
+import 'location_service.dart';
+import 'device_service.dart';
 
 class AuthService {
   static AuthService? _instance;
@@ -32,11 +34,14 @@ class AuthService {
         final userData = data['user'] as Map<String, dynamic>?;
 
         if (token != null && userData != null) {
-          // Save token (your backend only returns one token)
+          // Save token and user data
           await _storageService.saveAuthToken(token);
-          
-          // Save user data
           await _storageService.saveUserData(userData);
+
+          // Update device and location info after successful login
+          final deviceInfo = await _getDeviceInfo();
+          final locationInfo = await _getLocationInfo();
+          await _updateDeviceAndLocationInfo(deviceInfo, locationInfo);
 
           return AuthResult.success(
             message: 'Login successful',
@@ -60,6 +65,7 @@ class AuthService {
   }
 
 
+
   /// Register new user
   Future<AuthResult> register({
     required String email,
@@ -69,11 +75,17 @@ class AuthService {
     String? phone,
   }) async {
     try {
+      // Get device and location information
+      final deviceInfo = await _getDeviceInfo();
+      final locationInfo = await _getLocationInfo();
+
       final userData = {
         'email': email,
         'password': password,
         'first_name': firstName,
         'last_name': lastName,
+        'device_info': deviceInfo,
+        'location_info': locationInfo,
         if (phone != null && phone.isNotEmpty) 'phone': phone,
       };
 
@@ -81,6 +93,9 @@ class AuthService {
 
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'] as Map<String, dynamic>;
+
+        // Update device and location info on server
+        await _updateDeviceAndLocationInfo(deviceInfo, locationInfo);
 
         // Check if user needs email verification
         if (data['requires_verification'] == true) {
@@ -92,13 +107,11 @@ class AuthService {
         }
 
         // Auto login after registration if no verification required
-        final accessToken = data['access_token'] as String?;
-        final refreshToken = data['refresh_token'] as String?;
+        final token = data['token'] as String?;
         final userInfo = data['user'] as Map<String, dynamic>?;
 
-        if (accessToken != null && refreshToken != null && userInfo != null) {
-          await _storageService.saveAuthToken(accessToken);
-          await _storageService.saveRefreshToken(refreshToken);
+        if (token != null && userInfo != null) {
+          await _storageService.saveAuthToken(token);
           await _storageService.saveUserData(userInfo);
 
           return AuthResult.success(
@@ -144,6 +157,47 @@ class AuthService {
       );
     }
   }
+
+  Future<Map<String, dynamic>> _getDeviceInfo() async {
+    try {
+      final deviceService = DeviceService();
+      return await deviceService.getDeviceInfo();
+    } catch (e) {
+      print('Error getting device info: $e');
+      return {'error': 'Failed to get device information'};
+    }
+  }
+
+  /// Get location information
+  Future<Map<String, dynamic>?> _getLocationInfo() async {
+    try {
+      final locationService = LocationService();
+      return await locationService.getCurrentLocation();
+    } catch (e) {
+      print('Error getting location info: $e');
+      return {'error': 'Failed to get location information'};
+    }
+  }
+
+  /// Update device and location info on server
+  Future<void> _updateDeviceAndLocationInfo(
+    Map<String, dynamic> deviceInfo,
+    Map<String, dynamic>? locationInfo,
+  ) async {
+    try {
+      // Update device info
+      await _apiService.updateDeviceInfo(deviceInfo);
+      
+      // Update location info if available
+      if (locationInfo != null) {
+        await _apiService.updateLocation(locationInfo);
+      }
+    } catch (e) {
+      print('Error updating device/location info: $e');
+      // Don't throw error as this is secondary to auth process
+    }
+  }
+
 
   /// Check if user is logged in
   Future<bool> isLoggedIn() async {

@@ -72,24 +72,45 @@ class _RegisterScreenState extends State<RegisterScreen>
     super.dispose();
   }
 
-  Future<void> _handleRegister() async {
-    if (!_formKey.currentState!.validate()) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.register(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      firstName: _firstNameController.text.trim(),
-      lastName: _lastNameController.text.trim(),
-      phone: _phoneController.text.trim().isNotEmpty 
-          ? _phoneController.text.trim() 
-          : null,
-    );
+Future<void> _handleRegister() async {
+  if (!_formKey.currentState!.validate()) return;
 
-    if (success && mounted) {
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  
+  // Show loading indicator for device/location collection
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => const AlertDialog(
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Collecting device and location information...'),
+        ],
+      ),
+    ),
+  );
+
+  final success = await authProvider.register(
+    email: _emailController.text.trim(),
+    password: _passwordController.text,
+    firstName: _firstNameController.text.trim(),
+    lastName: _lastNameController.text.trim(),
+    phone: _phoneController.text.trim().isNotEmpty 
+        ? _phoneController.text.trim() 
+        : null,
+  );
+
+  if (mounted) {
+    Navigator.of(context).pop(); // Close loading dialog
+    
+    if (success) {
       // Navigate to identity verification
       _navigateToIdentityVerification();
-    } else if (mounted && authProvider.error != null) {
+    } else if (authProvider.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authProvider.error!),
@@ -98,6 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       );
     }
   }
+}
 
   void _navigateToIdentityVerification() {
     Navigator.of(context).push(
